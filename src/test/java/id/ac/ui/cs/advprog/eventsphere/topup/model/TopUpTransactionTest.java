@@ -1,4 +1,4 @@
-package id.ac.ui.cs.advprog.eventsphere.model;
+package id.ac.ui.cs.advprog.eventsphere.topup.model;
 
 import org.junit.jupiter.api.Test;
 import java.math.BigDecimal;
