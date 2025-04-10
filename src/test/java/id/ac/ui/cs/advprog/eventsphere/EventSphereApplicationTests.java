@@ -11,10 +11,9 @@ class EventSphereApplicationTests {
 
     @Autowired
     private ApplicationContext applicationContext;
-    
+
     @Test
     void contextLoads() {
         assertThat(applicationContext).isNotNull();
     }
-
 }
