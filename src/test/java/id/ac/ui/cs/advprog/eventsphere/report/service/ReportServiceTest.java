@@ -1,4 +1,3 @@
-// src/test/java/id/ac/ui/cs/advprog/eventsphere/report/service/ReportServiceTest.java
 package id.ac.ui.cs.advprog.eventsphere.report.service;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.Report;

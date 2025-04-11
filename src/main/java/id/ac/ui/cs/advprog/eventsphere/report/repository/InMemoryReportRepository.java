@@ -10,8 +10,9 @@ public class InMemoryReportRepository implements ReportRepository {
     private final Map<UUID, Report> reports = new HashMap<>();
 
     @Override
-    public void save(Report report) {
+    public Report save(Report report) {
         reports.put(report.getId(), report);
+        return report;
     }
 
     @Override
@@ -33,11 +34,15 @@ public class InMemoryReportRepository implements ReportRepository {
                 .collect(Collectors.toList());
     }
 
-
+    @Override
+    public List<Report> findAll() {
+        return new ArrayList<>(reports.values());
+    }
 
     @Override
-    public void update(Report report) {
+    public Report update(Report report) {
         reports.put(report.getId(), report);
+        return report;
     }
 
     @Override
