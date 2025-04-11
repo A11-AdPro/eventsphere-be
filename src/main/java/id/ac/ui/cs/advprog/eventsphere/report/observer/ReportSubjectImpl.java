@@ -2,10 +2,12 @@ package id.ac.ui.cs.advprog.eventsphere.report.observer;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
+import org.springframework.stereotype.Component;
 
 import java.util.List;
 import java.util.concurrent.CopyOnWriteArrayList;
 
+@Component
 public class ReportSubjectImpl implements ReportSubject {
     // Menggunakan CopyOnWriteArrayList untuk keamanan thread
     private final List<NotificationObserver> observers = new CopyOnWriteArrayList<>();

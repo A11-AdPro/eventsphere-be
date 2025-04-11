@@ -1,3 +1,4 @@
+// src/main/java/id/ac/ui/cs/advprog/eventsphere/report/service/ReportServiceImpl.java
 package id.ac.ui.cs.advprog.eventsphere.report.service;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
@@ -5,12 +6,14 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportType;
 import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportSubject;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportRepository;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Service
 public class ReportServiceImpl implements ReportService {
 
     private final ReportRepository reportRepository;
@@ -33,10 +36,9 @@ public class ReportServiceImpl implements ReportService {
                 LocalDateTime.now()
         );
 
-        Report savedReport = reportRepository.save(report);
-        reportSubject.notifyNewReport(savedReport);
-
-        return savedReport;
+        Report saved = reportRepository.save(report);
+        reportSubject.notifyNewReport(saved);
+        return saved;
     }
 
     @Override
@@ -62,27 +64,21 @@ public class ReportServiceImpl implements ReportService {
     @Override
     public boolean updateReportStatus(UUID reportId, ReportStatus newStatus) {
         Optional<Report> optionalReport = reportRepository.findById(reportId);
+        if (optionalReport.isEmpty()) return false;
 
-        if (optionalReport.isPresent()) {
-            Report report = optionalReport.get();
-            report.setStatus(newStatus);
-            reportRepository.update(report);
-            reportSubject.notifyStatusChange(report, newStatus);
-            return true;
-        }
-
-        return false;
+        Report report = optionalReport.get();
+        report.setStatus(newStatus);
+        reportRepository.update(report);
+        reportSubject.notifyStatusChange(report, newStatus);
+        return true;
     }
 
     @Override
     public boolean deleteReport(UUID reportId) {
         Optional<Report> optionalReport = reportRepository.findById(reportId);
+        if (optionalReport.isEmpty()) return false;
 
-        if (optionalReport.isPresent()) {
-            reportRepository.delete(reportId);
-            return true;
-        }
-
-        return false;
+        reportRepository.delete(reportId);
+        return true;
     }
 }
