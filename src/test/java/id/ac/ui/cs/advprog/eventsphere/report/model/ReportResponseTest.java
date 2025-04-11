@@ -29,21 +29,18 @@ public class ReportResponseTest {
 
     @Test
     public void testContentValidation() {
-        StringBuilder longContent = new StringBuilder();
-        for (int i = 0; i < 51; i++) {
-            longContent.append("0123456789");
-        }
+        String longContent = "0123456789".repeat(51);
 
-        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
-            new ReportResponse(
-                    UUID.randomUUID(),
-                    UUID.randomUUID(),
-                    UUID.randomUUID(),
-                    UserRole.ORGANIZER,
-                    longContent.toString(),
-                    LocalDateTime.now()
-            );
-        });
+        Exception exception = assertThrows(IllegalArgumentException.class,
+                () -> new ReportResponse(
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UUID.randomUUID(),
+                        UserRole.ORGANIZER,
+                        longContent,
+                        LocalDateTime.now()
+                )
+        );
 
         assertTrue(exception.getMessage().contains("exceed"));
     }
