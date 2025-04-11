@@ -8,10 +8,11 @@ import java.util.Optional;
 import java.util.UUID;
 
 public interface ReportRepository {
-    void save(Report report);
+    Report save(Report report);
     Optional<Report> findById(UUID id);
     List<Report> findByAttendeeId(UUID attendeeId);
     List<Report> findByStatus(ReportStatus status);
-    void update(Report report);
+    List<Report> findAll();
+    Report update(Report report);
     void delete(UUID id);
 }
