@@ -6,12 +6,14 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.UserRole;
 import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportSubject;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportRepository;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepository;
+import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
+@Service  // ⬅️ INI PENTING
 public class ReportResponseServiceImpl implements ReportResponseService {
 
     private final ReportResponseRepository responseRepository;
@@ -21,7 +23,8 @@ public class ReportResponseServiceImpl implements ReportResponseService {
     public ReportResponseServiceImpl(
             ReportResponseRepository responseRepository,
             ReportRepository reportRepository,
-            ReportSubject reportSubject) {
+            ReportSubject reportSubject
+    ) {
         this.responseRepository = responseRepository;
         this.reportRepository = reportRepository;
         this.reportSubject = reportSubject;

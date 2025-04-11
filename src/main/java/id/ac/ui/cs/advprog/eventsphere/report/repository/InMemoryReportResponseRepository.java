@@ -1,10 +1,12 @@
 package id.ac.ui.cs.advprog.eventsphere.report.repository;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
+import org.springframework.stereotype.Repository;
 
 import java.util.*;
 import java.util.stream.Collectors;
 
+@Repository
 public class InMemoryReportResponseRepository implements ReportResponseRepository {
 
     private final Map<UUID, ReportResponse> responses = new HashMap<>();
@@ -34,11 +36,6 @@ public class InMemoryReportResponseRepository implements ReportResponseRepositor
 
     @Override
     public void deleteByReportId(UUID reportId) {
-        List<UUID> toDelete = responses.values().stream()
-                .filter(response -> response.getReportId().equals(reportId))
-                .map(ReportResponse::getId)
-                .toList();
-
-        toDelete.forEach(this::delete);
+        responses.entrySet().removeIf(entry -> entry.getValue().getReportId().equals(reportId));
     }
 }
