@@ -46,6 +46,7 @@ dependencies {
    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
    implementation("me.paulschwarz:spring-dotenv:3.0.0")
    testImplementation("com.h2database:h2")
+   testRuntimeOnly("com.h2database:h2")
 }
 
 tasks.register<Test>("unitTest") {
