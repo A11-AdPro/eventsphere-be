@@ -1,8 +1,8 @@
-package id.ac.ui.cs.advprog.eventsphere.controller;
+package id.ac.ui.cs.advprog.eventsphere.ticket.controller;
 
-import id.ac.ui.cs.advprog.eventsphere.dto.*;
-import id.ac.ui.cs.advprog.eventsphere.service.TicketService;
-import id.ac.ui.cs.advprog.eventsphere.service.TicketServiceImpl;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.service.TicketService;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketRequest;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketResponse;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;

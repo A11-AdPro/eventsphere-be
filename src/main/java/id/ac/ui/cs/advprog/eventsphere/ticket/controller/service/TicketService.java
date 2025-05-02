@@ -1,7 +1,7 @@
-package id.ac.ui.cs.advprog.eventsphere.service;
+package id.ac.ui.cs.advprog.eventsphere.ticket.controller.service;
 
-import id.ac.ui.cs.advprog.eventsphere.dto.TicketRequest;
-import id.ac.ui.cs.advprog.eventsphere.dto.TicketResponse;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketRequest;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketResponse;
 
 import java.util.List;
 

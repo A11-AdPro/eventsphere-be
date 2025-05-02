@@ -1,4 +1,4 @@
-package id.ac.ui.cs.advprog.eventsphere.model;
+package id.ac.ui.cs.advprog.eventsphere.ticket.controller.model;
 
 public class Ticket {
 

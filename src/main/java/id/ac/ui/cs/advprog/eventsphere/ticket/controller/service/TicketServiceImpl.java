@@ -1,9 +1,10 @@
-package id.ac.ui.cs.advprog.eventsphere.service;
+package id.ac.ui.cs.advprog.eventsphere.ticket.controller.service;
 
-import id.ac.ui.cs.advprog.eventsphere.dto.*;
-import id.ac.ui.cs.advprog.eventsphere.model.Ticket;
-import id.ac.ui.cs.advprog.eventsphere.repository.TicketRepository;
-import id.ac.ui.cs.advprog.eventsphere.exception.TicketNotFoundException;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.model.Ticket;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.repository.TicketRepository;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.exception.TicketNotFoundException;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketRequest;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketResponse;
 import org.springframework.stereotype.Service;
 
 import java.util.List;

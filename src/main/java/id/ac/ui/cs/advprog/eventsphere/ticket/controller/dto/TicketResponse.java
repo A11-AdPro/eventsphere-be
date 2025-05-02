@@ -1,6 +1,6 @@
-package id.ac.ui.cs.advprog.eventsphere.dto;
+package id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto;
 
-import id.ac.ui.cs.advprog.eventsphere.model.TicketCategory;
+import id.ac.ui.cs.advprog.eventsphere.ticket.controller.model.TicketCategory;
 
 public class TicketResponse {
     private Long id;
