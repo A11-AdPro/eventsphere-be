@@ -30,11 +30,11 @@ public class User {
     @Column(nullable = false)
     private String email;
     
-    @Column(nullable = false)
-    private LocalDateTime createdAt;
+    @Builder.Default
+    private LocalDateTime createdAt = null;
     
-    @Column(nullable = false)
-    private LocalDateTime updatedAt;
+    @Builder.Default
+    private LocalDateTime updatedAt = null;
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)

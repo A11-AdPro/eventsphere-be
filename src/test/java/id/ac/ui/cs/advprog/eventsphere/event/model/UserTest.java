@@ -48,10 +48,17 @@ class UserTest {
     @Test
     void testPrePersist() {
         User newUser = new User();
+        // Store the timestamps before calling onCreate
+        LocalDateTime beforeCreated = newUser.getCreatedAt();
+        LocalDateTime beforeUpdated = newUser.getUpdatedAt();
+        
         newUser.onCreate();
         
+        // Now assert they're non-null and different from before
         assertNotNull(newUser.getCreatedAt());
         assertNotNull(newUser.getUpdatedAt());
+        assertNotEquals(beforeCreated, newUser.getCreatedAt());
+        assertNotEquals(beforeUpdated, newUser.getUpdatedAt());
         assertEquals(newUser.getCreatedAt(), newUser.getUpdatedAt());
     }
     
