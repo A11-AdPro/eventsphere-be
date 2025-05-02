@@ -5,8 +5,15 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.context.ApplicationContext;
 import static org.assertj.core.api.Assertions.assertThat;
+import id.ac.ui.cs.advprog.eventsphere.event.repository.UserRepository;
 
-@SpringBootTest
+@SpringBootTest(properties = {
+    "spring.datasource.url=jdbc:h2:mem:testdb",
+    "spring.datasource.driverClassName=org.h2.Driver",
+    "spring.datasource.username=sa",
+    "spring.datasource.password=password",
+    "spring.jpa.database-platform=org.hibernate.dialect.H2Dialect"
+})
 class EventSphereApplicationTests {
 
     @Autowired
@@ -15,5 +22,12 @@ class EventSphereApplicationTests {
     @Test
     void contextLoads() {
         assertThat(applicationContext).isNotNull();
+    }
+
+    @Test
+    void verifyRoleFieldIsNotNull() {
+        var userRepository = applicationContext.getBean(UserRepository.class);
+        var users = userRepository.findAll();
+        assertThat(users).allMatch(user -> user.getRole() != null, "All users should have a non-null role");
     }
 }

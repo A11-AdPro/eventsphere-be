@@ -45,6 +45,24 @@ dependencies {
    implementation("org.postgresql:postgresql:42.6.0")
    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
    implementation("me.paulschwarz:spring-dotenv:3.0.0")
+
+    // Spring Boot Starters
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+
+    // ModelMapper
+    implementation("org.modelmapper:modelmapper:3.1.1")
+
+    // Jika pakai Lombok
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
+    // Jika pakai Jakarta Validation
+    implementation("jakarta.validation:jakarta.validation-api:3.0.2")
+
+    // H2 Database for testing
+    testImplementation("com.h2database:h2")
 }
 
 tasks.register<Test>("unitTest") {

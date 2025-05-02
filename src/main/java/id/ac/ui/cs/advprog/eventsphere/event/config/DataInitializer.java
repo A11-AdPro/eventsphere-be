@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.event.config;
 
 import id.ac.ui.cs.advprog.eventsphere.event.model.User;
+import id.ac.ui.cs.advprog.eventsphere.event.model.UserRole;
 import id.ac.ui.cs.advprog.eventsphere.event.repository.UserRepository;
 import jakarta.annotation.PostConstruct;
 import lombok.RequiredArgsConstructor;
@@ -25,7 +26,7 @@ public class DataInitializer {
                     .password(passwordEncoder.encode("password"))
                     .name("Test Organizer")
                     .email("organizer@example.com")
-                    .role(null)
+                    .role(UserRole.ROLE_USER) // Use the correct UserRole enum value
                     .build();
             
             userRepository.save(organizer);
