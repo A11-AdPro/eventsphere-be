@@ -4,16 +4,19 @@ import id.ac.ui.cs.advprog.eventsphere.dto.*;
 import id.ac.ui.cs.advprog.eventsphere.model.Ticket;
 import id.ac.ui.cs.advprog.eventsphere.repository.TicketRepository;
 import id.ac.ui.cs.advprog.eventsphere.exception.TicketNotFoundException;
+import org.springframework.stereotype.Service;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
+@Service
 public class TicketServiceImpl implements TicketService {
     private final TicketRepository repo;
 
     public TicketServiceImpl(TicketRepository repo) {
         this.repo = repo;
     }
+
     @Override
     public TicketResponse addTicket(TicketRequest request) {
         Ticket ticket = new Ticket(null, request.name, request.price, request.quota, request.category, request.eventId);
@@ -23,6 +26,9 @@ public class TicketServiceImpl implements TicketService {
     @Override
     public TicketResponse updateTicket(Long id, TicketRequest request) {
         Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
+        ticket.setName(request.name);
+        ticket.setCategory(request.category);
+        ticket.setEventId(request.eventId);
         ticket.updateDetails(request.price, request.quota);
         return toResponse(repo.save(ticket));
     }
@@ -40,11 +46,12 @@ public class TicketServiceImpl implements TicketService {
     }
 
     @Override
-    public void deleteTicket(Long id) {
-        repo.deleteById(id);
+    public void deleteTicket(Long ticketId) {
+        Ticket ticket = repo.findById(ticketId)
+                .orElseThrow(() -> new TicketNotFoundException());
+        repo.delete(ticket);
     }
 
-    // ✅ Refactored to use Builder Pattern
     private TicketResponse toResponse(Ticket t) {
         return new TicketResponse.Builder()
                 .id(t.getId())
@@ -52,8 +59,10 @@ public class TicketServiceImpl implements TicketService {
                 .price(t.getPrice())
                 .quota(t.getQuota())
                 .category(t.getCategory())
+                .eventId(t.getEventId()) // ✅ ini wajib agar test berhasil
                 .soldOut(t.isSoldOut())
                 .build();
     }
 }
+
 

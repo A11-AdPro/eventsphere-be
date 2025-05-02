@@ -28,7 +28,6 @@ class TicketServiceImplTest {
     @Test
     void addTicket_shouldSaveTicket() {
         TicketRequest request = new TicketRequest("VIP", 500.0, 100, TicketCategory.VIP, 1L);
-// ✅ 6 args
         Ticket ticket = new Ticket(null, "VIP", 500.0, 100, TicketCategory.VIP, 1L); // ✅ 6 args
 
         when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
@@ -40,30 +39,25 @@ class TicketServiceImplTest {
         assertEquals(TicketCategory.VIP, savedTicket.getCategory());
     }
 
+
     @Test
     void updateTicket_shouldUpdateTicket() {
         Long ticketId = 1L;
-
-        // Existing ticket before update
-        Ticket existingTicket = new Ticket(ticketId, "Reguler", 200.0, 50, TicketCategory.REGULAR, 2L);
-
-        // New update request
-        TicketRequest updateRequest = new TicketRequest( "Reguler", 250.0, 40, TicketCategory.REGULAR, 2L);
+        Ticket existingTicket = new Ticket(ticketId, "Reguler", 200.0, 50, TicketCategory.REGULAR, 2L); // ✅ 6 args
+        TicketRequest updateRequest = new TicketRequest("Reguler", 250.0, 40, TicketCategory.REGULAR, 2L);
 
         when(ticketRepository.findById(ticketId)).thenReturn(Optional.of(existingTicket));
         when(ticketRepository.save(existingTicket)).thenReturn(existingTicket);
 
         TicketResponse updated = ticketService.updateTicket(ticketId, updateRequest);
 
-        // ✅ updated fields
         assertEquals(250.0, updated.getPrice());
         assertEquals(40, updated.getQuota());
-
-        // ❌ unchanged fields
         assertEquals("Reguler", updated.getName());
         assertEquals(TicketCategory.REGULAR, updated.getCategory());
         assertEquals(2L, updated.getEventId());
     }
+
 
     @Test
     void updateTicket_shouldThrowExceptionWhenNotFound() {
@@ -78,13 +72,15 @@ class TicketServiceImplTest {
     @Test
     void deleteTicket_shouldCallRepository() {
         Long ticketId = 1L;
-        Ticket ticket = new Ticket(ticketId, "Reguler", 150.0, 20, TicketCategory.REGULAR, 3L); // ✅ with id
+        Ticket ticket = new Ticket(ticketId, "Reguler", 150.0, 20, TicketCategory.REGULAR, 3L); // ✅ 6 args
+
         when(ticketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
 
         ticketService.deleteTicket(ticketId);
 
         verify(ticketRepository, times(1)).delete(ticket);
     }
+
 
     @Test
     void deleteTicket_shouldThrowExceptionWhenNotFound() {
@@ -94,4 +90,6 @@ class TicketServiceImplTest {
         assertThrows(TicketNotFoundException.class, () -> ticketService.deleteTicket(ticketId));
     }
 }
+
+
 

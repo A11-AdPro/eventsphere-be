@@ -18,7 +18,7 @@ public class TicketResponse {
         this.quota = builder.quota;
         this.category = builder.category;
         this.soldOut = builder.soldOut;
-        this.eventId = builder.eventId; // ✅ tambahkan ini
+        this.eventId = builder.eventId;
     }
 
     public static class Builder {
@@ -33,14 +33,6 @@ public class TicketResponse {
         public Builder id(Long id) {
             this.id = id;
             return this;
-        }
-        public Builder eventId(Long eventId) {
-            this.eventId = eventId;
-            return this;
-        }
-
-        public TicketResponse build() {
-            return new TicketResponse(this);
         }
 
         public Builder name(String name) {
@@ -68,7 +60,14 @@ public class TicketResponse {
             return this;
         }
 
+        public Builder eventId(Long eventId) {
+            this.eventId = eventId;
+            return this;
+        }
 
+        public TicketResponse build() {
+            return new TicketResponse(this);
+        }
     }
 
     // Getters
@@ -95,9 +94,11 @@ public class TicketResponse {
     public boolean isSoldOut() {
         return soldOut;
     }
+
     public Long getEventId() {
         return eventId;
     }
 }
+
 
 

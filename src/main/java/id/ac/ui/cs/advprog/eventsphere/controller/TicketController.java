@@ -10,7 +10,13 @@ import java.util.List;
 @RestController
 @RequestMapping("/tickets")
 public class TicketController {
-    private final TicketService service = new TicketServiceImpl();
+
+    private final TicketService service;
+
+    // ✅ constructor injection
+    public TicketController(TicketService service) {
+        this.service = service;
+    }
 
     @PostMapping
     public TicketResponse create(@RequestBody TicketRequest request) {

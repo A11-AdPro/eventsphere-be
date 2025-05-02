@@ -27,7 +27,7 @@ public class Ticket {
         return sold >= quota;
     }
 
-    public void updateDetails(double price, int quota) {
+    public void updateDetails(Double price, Integer quota) {
         this.price = price;
         this.quota = quota;
     }
