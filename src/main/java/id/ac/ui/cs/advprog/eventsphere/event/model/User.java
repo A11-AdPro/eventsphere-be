@@ -30,11 +30,13 @@ public class User {
     @Column(nullable = false)
     private String email;
     
+    @Column(nullable = false)
     @Builder.Default
-    private LocalDateTime createdAt = null;
+    private LocalDateTime createdAt = LocalDateTime.now();
     
+    @Column(nullable = false)
     @Builder.Default
-    private LocalDateTime updatedAt = null;
+    private LocalDateTime updatedAt = LocalDateTime.now();
     
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -42,13 +44,16 @@ public class User {
     
     @PrePersist
     protected void onCreate() {
-        createdAt = LocalDateTime.now();
-        updatedAt = LocalDateTime.now();
+        if (createdAt == null) {
+            createdAt = LocalDateTime.now();
+        }
+        if (updatedAt == null) {
+            updatedAt = LocalDateTime.now();
+        }
     }
     
     @PreUpdate
     protected void onUpdate() {
         updatedAt = LocalDateTime.now();
     }
-    
 }
