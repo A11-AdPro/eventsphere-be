@@ -42,15 +42,15 @@ public class User {
     @Column(nullable = false)
     private UserRole role;
     
-    @PrePersist
-    protected void onCreate() {
-        if (createdAt == null) {
-            createdAt = LocalDateTime.now();
-        }
-        if (updatedAt == null) {
-            updatedAt = LocalDateTime.now();
-        }
-    }
+    // @PrePersist
+    // protected void onCreate() {
+    //     if (createdAt == null) {
+    //         createdAt = LocalDateTime.now();
+    //     }
+    //     if (updatedAt == null) {
+    //         updatedAt = LocalDateTime.now();
+    //     }
+    // }
     
     @PreUpdate
     protected void onUpdate() {
