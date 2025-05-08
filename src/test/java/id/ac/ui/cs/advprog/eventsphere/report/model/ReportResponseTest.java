@@ -3,45 +3,55 @@ package id.ac.ui.cs.advprog.eventsphere.report.model;
 import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 import java.util.UUID;
-
 import static org.junit.jupiter.api.Assertions.*;
 
 public class ReportResponseTest {
 
     @Test
-    public void testCreateReportResponse() {
+    public void testReportResponseSettersAndGetters() {
+        ReportResponse response = new ReportResponse();
         UUID id = UUID.randomUUID();
-        UUID reportId = UUID.randomUUID();
         UUID responderId = UUID.randomUUID();
-        UserRole responderRole = UserRole.ADMIN;
-        String content = "We are looking into your issue";
-        LocalDateTime createdAt = LocalDateTime.now();
+        Report report = new Report();
+        LocalDateTime now = LocalDateTime.now();
 
-        ReportResponse response = new ReportResponse(id, reportId, responderId, responderRole, content, createdAt);
+        response.setId(id);
+        response.setReport(report);
+        response.setResponderId(responderId);
+        response.setResponderRole("ADMIN");
+        response.setMessage("Test response message");
+        response.setCreatedAt(now);
 
         assertEquals(id, response.getId());
-        assertEquals(reportId, response.getReportId());
+        assertEquals(report, response.getReport());
         assertEquals(responderId, response.getResponderId());
-        assertEquals(responderRole, response.getResponderRole());
-        assertEquals(content, response.getContent());
-        assertEquals(createdAt, response.getCreatedAt());
+        assertEquals("ADMIN", response.getResponderRole());
+        assertEquals("Test response message", response.getMessage());
+        assertEquals(now, response.getCreatedAt());
     }
 
     @Test
-    public void testContentValidation() {
-        String longContent = "0123456789".repeat(51);
+    public void testReportResponseValidation() {
+        ReportResponse response = new ReportResponse();
 
-        Exception exception = assertThrows(IllegalArgumentException.class,
-                () -> new ReportResponse(
-                        UUID.randomUUID(),
-                        UUID.randomUUID(),
-                        UUID.randomUUID(),
-                        UserRole.ORGANIZER,
-                        longContent,
-                        LocalDateTime.now()
-                )
-        );
+        // Create message that exceeds max length
+        StringBuilder longMessage = new StringBuilder();
+        for (int i = 0; i < 501; i++) {
+            longMessage.append("a");
+        }
 
-        assertTrue(exception.getMessage().contains("exceed"));
+        // Set valid values
+        response.setResponderId(UUID.randomUUID());
+        response.setResponderRole("ADMIN");
+
+        // Test message validation
+        assertThrows(IllegalArgumentException.class, () -> {
+            response.setMessage(longMessage.toString());
+        });
+
+        // Test with valid message
+        String validMessage = "This is a valid message";
+        response.setMessage(validMessage);
+        assertEquals(validMessage, response.getMessage());
     }
 }
