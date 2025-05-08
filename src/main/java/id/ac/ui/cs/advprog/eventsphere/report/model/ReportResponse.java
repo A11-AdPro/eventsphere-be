@@ -1,37 +1,44 @@
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
-import lombok.Getter;
-import lombok.Setter;
+import jakarta.persistence.*;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
 import java.util.UUID;
 
-@Getter
-@Setter
+@Entity
+@Table(name = "report_responses")
+@Data
+@NoArgsConstructor
 public class ReportResponse {
-    private static final int MAX_CONTENT_LENGTH = 500;
 
+    private static final int MAX_MESSAGE_LENGTH = 500;
+
+    @Id
+    @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
-    private UUID reportId;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "report_id", nullable = false)
+    private Report report;
+
+    @Column(name = "responder_id", nullable = false)
     private UUID responderId;
-    private UserRole responderRole;
-    private String content;
-    private LocalDateTime createdAt;
 
-    public ReportResponse(UUID id, UUID reportId, UUID responderId, UserRole responderRole, String content, LocalDateTime createdAt) {
-        if (content == null || content.isEmpty()) {
-            throw new IllegalArgumentException("Response content cannot be empty");
+    @Column(name = "responder_role", nullable = false)
+    private String responderRole;
+
+    @Column(nullable = false, length = MAX_MESSAGE_LENGTH)
+    private String message;
+
+    @Column(name = "created_at", nullable = false)
+    private LocalDateTime createdAt = LocalDateTime.now();
+
+    public void setMessage(String message) {
+        if (message != null && message.length() > MAX_MESSAGE_LENGTH) {
+            throw new IllegalArgumentException("Message exceeds maximum length of " + MAX_MESSAGE_LENGTH + " characters");
         }
-
-        if (content.length() > MAX_CONTENT_LENGTH) {
-            throw new IllegalArgumentException("Response content cannot exceed " + MAX_CONTENT_LENGTH + " characters");
-        }
-
-        this.id = id;
-        this.reportId = reportId;
-        this.responderId = responderId;
-        this.responderRole = responderRole;
-        this.content = content;
-        this.createdAt = createdAt;
+        this.message = message;
     }
 }
