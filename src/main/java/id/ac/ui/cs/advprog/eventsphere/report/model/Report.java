@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
+import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportObserver;
 import jakarta.persistence.*;
 import lombok.Data;
 import lombok.NoArgsConstructor;
@@ -47,5 +48,27 @@ public class Report {
     @OneToMany(mappedBy = "report", cascade = CascadeType.ALL, orphanRemoval = true)
     private List<ReportResponse> responses = new ArrayList<>();
 
+    @Transient
+    private List<ReportObserver> observers = new ArrayList<>();
 
+    public void updateStatus(ReportStatus newStatus) {
+        ReportStatus oldStatus = this.status;
+        this.status = newStatus;
+        this.updatedAt = LocalDateTime.now();
+
+        // Notify observers
+        for (ReportObserver observer : observers) {
+            observer.onStatusChanged(this, oldStatus, newStatus);
+        }
+    }
+
+    public void addResponse(ReportResponse response) {
+        responses.add(response);
+        response.setReport(this);
+
+        // Notify observers
+        for (ReportObserver observer : observers) {
+            observer.onResponseAdded(this, response);
+        }
+    }
 }
