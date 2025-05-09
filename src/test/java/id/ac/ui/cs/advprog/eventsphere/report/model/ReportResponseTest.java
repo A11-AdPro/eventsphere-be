@@ -70,4 +70,12 @@ public class ReportResponseTest {
         assertEquals(report, response.getReport());
         assertNotNull(response.getCreatedAt());
     }
+
+    @Test
+    public void testReportResponseSetMessageNull() {
+        ReportResponse response = new ReportResponse();
+        response.setMessage(null);
+        assertNull(response.getMessage());
+    }
+
 }

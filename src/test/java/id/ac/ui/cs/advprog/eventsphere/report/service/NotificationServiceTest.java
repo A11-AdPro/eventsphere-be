@@ -37,8 +37,12 @@ public class NotificationServiceTest {
         Report report = new Report(userId, ReportCategory.PAYMENT, "Payment issue");
         report.setId(UUID.randomUUID());
 
+        // Setup ReportStatus display names
+        ReportStatus oldStatus = ReportStatus.PENDING;
+        ReportStatus newStatus = ReportStatus.ON_PROGRESS;
+
         // Call the method being tested
-        notificationService.onStatusChanged(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
+        notificationService.onStatusChanged(report, oldStatus, newStatus);
 
         // Capture and verify the notification created
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
@@ -48,8 +52,8 @@ public class NotificationServiceTest {
         assertEquals(userId, notification.getRecipientId());
         assertEquals("SYSTEM", notification.getSenderRole());
         assertTrue(notification.getTitle().contains("Report Status Updated"));
-        assertTrue(notification.getMessage().contains("PENDING"));
-        assertTrue(notification.getMessage().contains("ON_PROGRESS"));
+        assertTrue(notification.getMessage().contains(oldStatus.getDisplayName()));
+        assertTrue(notification.getMessage().contains(newStatus.getDisplayName()));
         assertEquals("STATUS_UPDATE", notification.getType());
         assertEquals(report.getId(), notification.getRelatedEntityId());
         assertFalse(notification.isRead());
@@ -188,4 +192,57 @@ public class NotificationServiceTest {
         // Verify repository interaction
         verify(notificationRepository).countByRecipientIdAndRead(userId, false);
     }
+
+    @Test
+    public void testMarkNotificationAsRead() {
+        UUID notificationId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        // Create a test notification
+        Notification notification = new Notification(userId, "ADMIN", "Title", "Message", "TYPE_1", UUID.randomUUID());
+        notification.setId(notificationId);
+        notification.setRead(false);  // Set as unread initially
+
+        // Mock the repository behavior
+        when(notificationRepository.findById(notificationId)).thenReturn(java.util.Optional.of(notification));
+
+        // Mock the behavior of the save method
+        when(notificationRepository.save(notification)).thenReturn(notification);
+
+        // Call the service method to mark as read
+        Notification updatedNotification = notificationService.markNotificationAsRead(notificationId);
+
+        // Verify the notification was marked as read
+        assertTrue(updatedNotification.isRead(), "The notification should be marked as read.");
+
+        // Verify repository interaction
+        verify(notificationRepository).save(updatedNotification);
+    }
+
+    @Test
+    public void testMarkAllNotificationsAsRead() {
+        UUID userId = UUID.randomUUID();
+
+        // Create some unread notifications
+        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        notification1.setRead(false);
+        Notification notification2 = new Notification(userId, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        notification2.setRead(false);
+
+        List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
+
+        // Mock the repository behavior
+        when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false)).thenReturn(unreadNotifications);
+
+        // Call the service method to mark all notifications as read
+        notificationService.markAllNotificationsAsRead(userId);
+
+        // Verify that save was called for each notification
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+
+        // Verify that the notifications are now marked as read
+        assertTrue(notification1.isRead());
+        assertTrue(notification2.isRead());
+    }
+
 }

@@ -16,4 +16,9 @@ class EventSphereApplicationTests {
     void contextLoads() {
         assertThat(applicationContext).isNotNull();
     }
+
+    @Test
+    void mainMethodRuns() {
+        EventSphereApplication.main(new String[]{});
+    }
 }

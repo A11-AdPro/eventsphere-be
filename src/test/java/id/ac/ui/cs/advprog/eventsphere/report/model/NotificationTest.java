@@ -19,7 +19,8 @@ public class NotificationTest {
         Notification notification = new Notification(
                 recipientId, senderRole, title, message, type, relatedEntityId);
 
-        assertNotNull(notification.getId()); // May be null if generated on save
+        // ID akan null sampai disimpan ke database
+        // assertNotNull(notification.getId());
         assertEquals(recipientId, notification.getRecipientId());
         assertEquals(senderRole, notification.getSenderRole());
         assertEquals(title, notification.getTitle());

@@ -60,4 +60,5 @@ public class FileStorageService {
         Path filePath = this.fileStorageLocation.resolve(fileName).normalize();
         Files.deleteIfExists(filePath);
     }
+
 }

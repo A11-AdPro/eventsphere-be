@@ -168,4 +168,31 @@ public class OrganizerReportControllerTest {
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
                 .andExpect(jsonPath("$.status").value("ON_PROGRESS"));
     }
+
+    @Test
+    public void testGetReportsByStatus_DefaultPending() throws Exception {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+
+        ReportSummaryDTO dto = new ReportSummaryDTO();
+        dto.setId(reportId);
+        dto.setCategory(ReportCategory.EVENT);
+        dto.setStatus(ReportStatus.PENDING);
+        dto.setShortDescription("No status param issue");
+        dto.setCreatedAt(LocalDateTime.now());
+        dto.setCommentCount(2);
+
+        List<ReportSummaryDTO> summaryDTOs = List.of(dto);
+
+        // Mock service
+        when(reportService.getReportsByStatus(ReportStatus.PENDING)).thenReturn(summaryDTOs);
+
+        // Perform request without 'status' param
+        mockMvc.perform(get("/api/organizer/reports"))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(reportId.toString()))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[0].category").value("EVENT"));
+    }
+
 }

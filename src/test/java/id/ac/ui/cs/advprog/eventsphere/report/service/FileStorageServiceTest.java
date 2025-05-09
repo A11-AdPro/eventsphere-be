@@ -96,4 +96,61 @@ public class FileStorageServiceTest {
         // Verify the file was deleted
         assertFalse(Files.exists(tempDir.resolve(fileName)));
     }
+
+    @Test
+    public void testDirectoryCreation() {
+        Path validPath = tempDir.resolve("uploads");
+
+        FileStorageService fileStorageService = new FileStorageService(validPath.toString());
+
+        assertTrue(Files.exists(validPath), "The directory should be created successfully.");
+    }
+
+    @Test
+    public void testConstructorWithInvalidDirectory() {
+        // Create a file (not a directory) with the same name as our intended directory
+        Path invalidPath = tempDir.resolve("invalid-dir");
+        try {
+            Files.createFile(invalidPath);
+
+            // Try to initialize FileStorageService with a path that cannot be a directory
+            assertThrows(RuntimeException.class, () -> {
+                new FileStorageService(invalidPath.toString());
+            });
+        } catch (IOException e) {
+            fail("Test setup failed: " + e.getMessage());
+        }
+    }
+
+    @Test
+    public void testStoreFileWithoutExtension() throws IOException {
+        MultipartFile file = new MockMultipartFile(
+                "testfile",
+                "testWithoutExtension",
+                "text/plain",
+                "Test content".getBytes()
+        );
+
+        String fileName = fileStorageService.storeFile(file);
+
+        assertNotNull(fileName);
+        assertFalse(fileName.contains("."));
+        assertTrue(Files.exists(tempDir.resolve(fileName)));
+    }
+
+    @Test
+    public void testStoreFileWithMultipleDots() throws IOException {
+        MultipartFile file = new MockMultipartFile(
+                "testfile",
+                "test.with.multiple.dots.txt",
+                "text/plain",
+                "Test content".getBytes()
+        );
+
+        String fileName = fileStorageService.storeFile(file);
+
+        assertNotNull(fileName);
+        assertTrue(fileName.endsWith(".txt"));
+        assertTrue(Files.exists(tempDir.resolve(fileName)));
+    }
 }

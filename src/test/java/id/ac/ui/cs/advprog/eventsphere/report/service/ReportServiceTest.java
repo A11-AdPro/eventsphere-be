@@ -11,9 +11,11 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportRepository;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.ArgumentCaptor;
+import org.mockito.Mockito;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -21,6 +23,7 @@ import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -171,22 +174,24 @@ public class ReportServiceTest {
         // Create test data
         UUID reportId = UUID.randomUUID();
         UUID responderId = UUID.randomUUID();
+        String responderRole = "ADMIN";
+        String message = "Test comment";
 
         Report report = new Report();
         report.setId(reportId);
-        report.setStatus(ReportStatus.PENDING);
+        report.setStatus(ReportStatus.PENDING);  // Initially PENDING
 
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
         commentRequest.setResponderId(responderId);
-        commentRequest.setResponderRole("ADMIN");
-        commentRequest.setMessage("Test comment");
+        commentRequest.setResponderRole(responderRole);
+        commentRequest.setMessage(message);
 
         // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
-            ReportResponse response = invocation.getArgument(0);
-            response.setId(UUID.randomUUID());
-            return response;
+            ReportResponse savedResponse = invocation.getArgument(0);
+            savedResponse.setId(UUID.randomUUID()); // Mock saving the comment
+            return savedResponse;
         });
 
         // Call the service method
@@ -196,18 +201,18 @@ public class ReportServiceTest {
         verify(reportRepository).findById(reportId);
         verify(responseRepository).save(any(ReportResponse.class));
 
-        // Verify observer was notified
+        // Verify notification service was called
         verify(notificationService).onResponseAdded(eq(report), any(ReportResponse.class));
 
-        // Verify status was updated
+        // Verify the report status is updated to ON_PROGRESS
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
 
-        // Verify result
+        // Verify the result
         assertNotNull(result.getId());
         assertEquals(reportId, result.getReportId());
         assertEquals(responderId, result.getResponderId());
-        assertEquals("ADMIN", result.getResponderRole());
-        assertEquals("Test comment", result.getMessage());
+        assertEquals(responderRole, result.getResponderRole());
+        assertEquals(message, result.getMessage());
     }
 
     @Test
@@ -242,12 +247,9 @@ public class ReportServiceTest {
     public void testDeleteReport() throws IOException {
         // Create test data
         UUID reportId = UUID.randomUUID();
-
         Report report = new Report();
         report.setId(reportId);
-
-        List<String> attachments = Arrays.asList("file1.jpg", "file2.jpg");
-        report.setAttachments(attachments);
+        report.setAttachments(Arrays.asList("file1.jpg", "file2.jpg"));
 
         // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
@@ -262,5 +264,525 @@ public class ReportServiceTest {
         // Verify file deletion
         verify(fileStorageService).deleteFile("file1.jpg");
         verify(fileStorageService).deleteFile("file2.jpg");
+    }
+
+    @Test
+    public void testGetReportsByStatus_withStatus() {
+        // Create test data for reports
+        Report report1 = new Report();
+        report1.setId(UUID.randomUUID());
+        report1.setCategory(ReportCategory.PAYMENT);
+        report1.setStatus(ReportStatus.PENDING);
+        report1.setCreatedAt(LocalDateTime.now());
+
+        Report report2 = new Report();
+        report2.setId(UUID.randomUUID());
+        report2.setCategory(ReportCategory.TICKET);
+        report2.setStatus(ReportStatus.PENDING);
+        report2.setCreatedAt(LocalDateTime.now());
+
+        List<Report> reports = Arrays.asList(report1, report2);
+
+        // Mock repository behavior for fetching reports with PENDING status
+        when(reportRepository.findByStatus(ReportStatus.PENDING)).thenReturn(reports);
+
+        // Call the service method with PENDING status
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(ReportStatus.PENDING);
+
+        // Verify repository interactions
+        verify(reportRepository).findByStatus(ReportStatus.PENDING);
+
+        // Verify the result
+        assertEquals(2, result.size());
+        assertEquals(ReportStatus.PENDING, result.get(0).getStatus());
+        assertEquals(ReportStatus.PENDING, result.get(1).getStatus());
+    }
+
+    @Test
+    public void testGetReportsByStatus_withNullStatus() {
+        // Create test data for reports
+        Report report1 = new Report();
+        report1.setId(UUID.randomUUID());
+        report1.setCategory(ReportCategory.PAYMENT);
+        report1.setStatus(ReportStatus.PENDING);
+        report1.setCreatedAt(LocalDateTime.now());
+
+        Report report2 = new Report();
+        report2.setId(UUID.randomUUID());
+        report2.setCategory(ReportCategory.TICKET);
+        report2.setStatus(ReportStatus.RESOLVED);
+        report2.setCreatedAt(LocalDateTime.now());
+
+        List<Report> reports = Arrays.asList(report1, report2);
+
+        // Mock repository behavior for fetching all reports
+        when(reportRepository.findAll()).thenReturn(reports);
+
+        // Call the service method with null status (should fetch all reports)
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+
+        // Verify repository interactions
+        verify(reportRepository).findAll();
+
+        // Verify the result
+        assertEquals(2, result.size());
+        assertEquals(ReportStatus.PENDING, result.get(0).getStatus());
+        assertEquals(ReportStatus.RESOLVED, result.get(1).getStatus());
+    }
+
+    @Test
+    public void testCreateReport_withNullAttachments() throws IOException {
+        // Create test data
+        UUID userId = UUID.randomUUID();
+        CreateReportRequest createRequest = new CreateReportRequest();
+        createRequest.setUserId(userId);
+        createRequest.setCategory(ReportCategory.PAYMENT);
+        createRequest.setDescription("Test description");
+
+        // Null attachments
+        List<MultipartFile> attachments = null;
+
+        // Mock reportRepository behavior
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+
+        // Call the service method
+        ReportResponseDTO result = reportService.createReport(createRequest, attachments);
+
+        // Verify repository interactions
+        verify(reportRepository).save(any(Report.class));
+
+        // Verify file storage interactions (should not be called)
+        verify(fileStorageService, never()).storeFile(any(MultipartFile.class));
+
+        // Verify the attachments list is empty
+        assertTrue(result.getAttachments().isEmpty());
+    }
+
+    @Test
+    public void testCreateReport_withEmptyAttachments() throws IOException {
+        // Create test data
+        UUID userId = UUID.randomUUID();
+        CreateReportRequest createRequest = new CreateReportRequest();
+        createRequest.setUserId(userId);
+        createRequest.setCategory(ReportCategory.PAYMENT);
+        createRequest.setDescription("Test description");
+
+        // Empty attachments list
+        List<MultipartFile> attachments = new ArrayList<>();
+
+        // Mock reportRepository behavior
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+
+        // Call the service method
+        ReportResponseDTO result = reportService.createReport(createRequest, attachments);
+
+        // Verify repository interactions
+        verify(reportRepository).save(any(Report.class));
+
+        // Verify file storage interactions (should not be called)
+        verify(fileStorageService, never()).storeFile(any(MultipartFile.class));
+
+        // Verify the attachments list is empty
+        assertTrue(result.getAttachments().isEmpty());
+    }
+
+    @Test
+    public void testCreateReport_withEmptyFile() throws IOException {
+        // Create test data
+        UUID userId = UUID.randomUUID();
+        CreateReportRequest createRequest = new CreateReportRequest();
+        createRequest.setUserId(userId);
+        createRequest.setCategory(ReportCategory.PAYMENT);
+        createRequest.setDescription("Test description");
+
+        // Create an empty file
+        MultipartFile emptyFile = new MockMultipartFile("file", "empty.jpg", "image/jpeg", new byte[0]);
+        List<MultipartFile> attachments = Arrays.asList(emptyFile);
+
+        // Mock reportRepository behavior
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+
+        // Call the service method
+        ReportResponseDTO result = reportService.createReport(createRequest, attachments);
+
+        // Verify repository interactions
+        verify(reportRepository).save(any(Report.class));
+
+        // Verify file storage interactions (should not be called for the empty file)
+        verify(fileStorageService, never()).storeFile(emptyFile);
+
+        // Verify the attachments list is empty
+        assertTrue(result.getAttachments().isEmpty());
+    }
+
+    @Test
+    public void testAddComment_withNotificationServiceAlreadyObserver() {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+        UUID responderId = UUID.randomUUID();
+        String responderRole = "ADMIN";
+        String message = "Test comment";
+
+        // Create a report with PENDING status
+        Report report = new Report();
+        report.setId(reportId);
+        report.setStatus(ReportStatus.PENDING);
+
+        // Add notificationService as an observer before calling the method
+        report.getObservers().add(notificationService);
+
+        // Ensure that notificationService is already in the observers list
+        assertTrue(report.getObservers().contains(notificationService));
+
+        // Create a comment request
+        CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
+        commentRequest.setResponderId(responderId);
+        commentRequest.setResponderRole(responderRole);
+        commentRequest.setMessage(message);
+
+        // Mock repository behavior
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
+            ReportResponse savedResponse = invocation.getArgument(0);
+            savedResponse.setId(UUID.randomUUID()); // Mock saving the comment
+            return savedResponse;
+        });
+
+        // Call the service method
+        ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+        verify(responseRepository).save(any(ReportResponse.class));
+
+        // Verify that notificationService is NOT added again
+        assertTrue(report.getObservers().contains(notificationService));
+
+        // Verify result
+        assertNotNull(result.getId());
+        assertEquals(reportId, result.getReportId());
+        assertEquals(responderId, result.getResponderId());
+        assertEquals(responderRole, result.getResponderRole());
+        assertEquals(message, result.getMessage());
+    }
+
+    @Test
+    public void testUpdateReportStatus_withNotificationServiceAlreadyObserver() {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+        ReportStatus newStatus = ReportStatus.RESOLVED;
+
+        // Create a report with PENDING status
+        Report report = new Report();
+        report.setId(reportId);
+        report.setStatus(ReportStatus.PENDING);
+
+        // Add notificationService as an observer before calling the method
+        report.getObservers().add(notificationService);
+
+        // Ensure notificationService is already in the observers list
+        assertTrue(report.getObservers().contains(notificationService));
+
+        // Mock repository behavior
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report updatedReport = invocation.getArgument(0);
+            updatedReport.setId(reportId);  // Mock updated report
+            return updatedReport;
+        });
+
+        // Call the service method to update the status
+        ReportResponseDTO result = reportService.updateReportStatus(reportId, newStatus);
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+        verify(reportRepository).save(report);
+
+        // Verify that notificationService was NOT added again
+        assertTrue(report.getObservers().contains(notificationService));
+
+        // Verify that the report status was updated
+        assertEquals(newStatus, report.getStatus());
+
+        // Verify result
+        assertNotNull(result.getId());
+        assertEquals(reportId, result.getId());
+        assertEquals(newStatus, result.getStatus());
+    }
+
+    @Test
+    public void testGetReportById_NotFound() {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+
+        // Mock repository behavior to return empty
+        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
+
+        // Verify that EntityNotFoundException is thrown
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.getReportById(reportId)
+        );
+
+        // Verify exception message contains the report ID
+        assertTrue(exception.getMessage().contains(reportId.toString()));
+    }
+
+    @Test
+    public void testAddComment_NonPendingStatus() {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+        UUID responderId = UUID.randomUUID();
+
+        // Create report with NON-PENDING status (already ON_PROGRESS)
+        Report report = new Report();
+        report.setId(reportId);
+        report.setStatus(ReportStatus.ON_PROGRESS); // Already in ON_PROGRESS
+
+        CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
+        commentRequest.setResponderId(responderId);
+        commentRequest.setResponderRole("ADMIN");
+        commentRequest.setMessage("Test comment for non-pending report");
+
+        // Mock repository behavior
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
+            ReportResponse savedResponse = invocation.getArgument(0);
+            savedResponse.setId(UUID.randomUUID());
+            return savedResponse;
+        });
+
+        // Call the service method
+        ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+        verify(responseRepository).save(any(ReportResponse.class));
+
+        // Verify the status wasn't changed (since it wasn't PENDING)
+        assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
+
+        // Verify reportRepository.save wasn't called a second time to update status
+        verify(reportRepository, never()).save(report);
+    }
+
+    @Test
+    public void testConvertToResponseDTO_WithNullResponses() {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+        UUID userId = UUID.randomUUID();
+
+        Report report = new Report();
+        report.setId(reportId);
+        report.setUserId(userId);
+        report.setCategory(ReportCategory.PAYMENT);
+        report.setDescription("Test report");
+        report.setStatus(ReportStatus.PENDING);
+        report.setCreatedAt(LocalDateTime.now());
+        report.setResponses(null); // Explicitly set responses to null
+
+        // Mock repository behavior
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+
+        // Call the service method
+        ReportResponseDTO result = reportService.getReportById(reportId);
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+
+        // Verify result
+        assertEquals(reportId, result.getId());
+        assertEquals(userId, result.getUserId());
+        assertNotNull(result.getComments()); // Should have an empty list, not null
+        assertTrue(result.getComments().isEmpty());
+    }
+
+    @Test
+    public void testConvertToCommentDTO_WithNullReport() {
+        // Create test data
+        UUID commentId = UUID.randomUUID();
+        UUID responderId = UUID.randomUUID();
+
+        // Create report response with null report reference
+        ReportResponse response = new ReportResponse();
+        response.setId(commentId);
+        response.setResponderId(responderId);
+        response.setResponderRole("ADMIN");
+        response.setMessage("Test comment");
+        response.setCreatedAt(LocalDateTime.now());
+        response.setReport(null); // Explicitly set report to null
+
+        // Create a report for findById
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.setStatus(ReportStatus.PENDING);
+        report.setResponses(Collections.singletonList(response));
+
+        // Mock repository behavior
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+
+        // Call the service method
+        ReportResponseDTO result = reportService.getReportById(reportId);
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+
+        // Verify result
+        assertNotNull(result.getComments());
+        assertEquals(1, result.getComments().size());
+
+        ReportCommentDTO commentDTO = result.getComments().get(0);
+        assertEquals(commentId, commentDTO.getId());
+        assertEquals(responderId, commentDTO.getResponderId());
+        assertNull(commentDTO.getReportId()); // Should be null since report is null
+    }
+
+    @Test
+    public void testDeleteReport_NotFound() throws IOException { // Added IOException here
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+
+        // Mock repository behavior to return empty
+        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
+
+        // Verify that EntityNotFoundException is thrown
+        assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.deleteReport(reportId)
+        );
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+        verify(reportRepository, never()).delete(any(Report.class));
+        verify(fileStorageService, never()).deleteFile(any(String.class));
+    }
+
+    @Test
+    public void testUpdateReportStatus_NotFound() {
+        // Create test data
+        UUID reportId = UUID.randomUUID();
+
+        // Mock repository behavior to return empty
+        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
+
+        // Verify that EntityNotFoundException is thrown
+        assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.updateReportStatus(reportId, ReportStatus.RESOLVED)
+        );
+
+        // Verify repository interactions
+        verify(reportRepository).findById(reportId);
+        verify(reportRepository, never()).save(any(Report.class));
+    }
+
+    @Test
+    public void testLongDescriptionTruncation() {
+        // Create test data with long description
+        String longDescription = "This is a very long description that needs to be truncated because it exceeds fifty characters!";
+
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+        report.setCategory(ReportCategory.PAYMENT);
+        report.setStatus(ReportStatus.PENDING);
+        report.setCreatedAt(LocalDateTime.now());
+        report.setDescription(longDescription);
+
+        List<Report> reports = List.of(report);
+
+        // Mock repository
+        when(reportRepository.findAll()).thenReturn(reports);
+
+        // Call service method
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+
+        // Verify the result contains truncated description
+        assertEquals(1, result.size());
+        assertEquals(longDescription.substring(0, 47) + "...", result.get(0).getShortDescription());
+    }
+
+    @Test
+    public void testShortDescription() {
+        // Create test data with short description
+        String shortDescription = "This is a short description.";
+
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+        report.setCategory(ReportCategory.PAYMENT);
+        report.setStatus(ReportStatus.PENDING);
+        report.setCreatedAt(LocalDateTime.now());
+        report.setDescription(shortDescription);
+
+        List<Report> reports = List.of(report);
+
+        // Mock repository
+        when(reportRepository.findAll()).thenReturn(reports);
+
+        // Call service method
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+
+        // Verify the result contains the original description (not truncated)
+        assertEquals(1, result.size());
+        assertEquals(shortDescription, result.get(0).getShortDescription());
+    }
+
+    @Test
+    public void testNullDescription() {
+        // Create test data with null description
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+        report.setCategory(ReportCategory.PAYMENT);
+        report.setStatus(ReportStatus.PENDING);
+        report.setCreatedAt(LocalDateTime.now());
+        report.setDescription(null); // Explicitly set description to null
+
+        List<Report> reports = List.of(report);
+
+        // Mock repository
+        when(reportRepository.findAll()).thenReturn(reports);
+
+        // Call service method
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+
+        // Verify the result has null or empty short description
+        assertEquals(1, result.size());
+        assertNull(result.get(0).getShortDescription());
+    }
+
+    @Test
+    public void testNullResponsesList() {
+        // Create test data with null responses list
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+        report.setCategory(ReportCategory.PAYMENT);
+        report.setStatus(ReportStatus.PENDING);
+        report.setCreatedAt(LocalDateTime.now());
+        report.setDescription("Test description");
+        report.setResponses(null); // Explicitly set responses to null
+
+        List<Report> reports = List.of(report);
+
+        // Mock repository
+        when(reportRepository.findAll()).thenReturn(reports);
+
+        // Call service method
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+
+        // Verify the result has 0 comment count
+        assertEquals(1, result.size());
+        assertEquals(0, result.get(0).getCommentCount());
     }
 }
