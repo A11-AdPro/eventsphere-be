@@ -13,7 +13,7 @@ import java.time.LocalDateTime;
 @AllArgsConstructor
 public class TransactionDTO {
     private String id;
-    private String userId;
+    private Long userId;
     private String username;
     private int amount;
     private LocalDateTime timestamp;

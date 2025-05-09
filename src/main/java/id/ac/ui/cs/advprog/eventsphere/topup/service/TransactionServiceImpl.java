@@ -3,11 +3,13 @@ package id.ac.ui.cs.advprog.eventsphere.topup.service;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.PurchaseRequestDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TransactionDTO;
-import id.ac.ui.cs.advprog.eventsphere.topup.entity.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.Transaction;
 import id.ac.ui.cs.advprog.eventsphere.topup.repository.TransactionRepository;
-import id.ac.ui.cs.advprog.eventsphere.topup.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.topup.util.CurrentUserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -20,18 +22,22 @@ public class TransactionServiceImpl implements TransactionService {
 
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final CurrentUserUtil currentUserUtil;
 
     @Autowired
     public TransactionServiceImpl(UserRepository userRepository,
-                                  TransactionRepository transactionRepository) {
+                                  TransactionRepository transactionRepository,
+                                  CurrentUserUtil currentUserUtil) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
+        this.currentUserUtil = currentUserUtil;
     }
 
     @Override
     @Transactional
     public TopUpResponseDTO processTicketPurchase(PurchaseRequestDTO purchaseRequest) {
-        User user = userRepository.findById(purchaseRequest.getUserId())
+        String email = currentUserUtil.getCurrentUserEmail();
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         Transaction transaction = Transaction.builder()
@@ -68,13 +74,25 @@ public class TransactionServiceImpl implements TransactionService {
     }
 
     @Override
+    @PreAuthorize("hasRole('ADMIN')")
     public List<TransactionDTO> getAllTransactions() {
         List<Transaction> transactions = transactionRepository.findAll();
         return mapTransactionsToDTO(transactions);
     }
 
     @Override
-    public List<TransactionDTO> getUserTransactions(String userId) {
+    public List<TransactionDTO> getCurrentUserTransactions() {
+        String email = currentUserUtil.getCurrentUserEmail();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        List<Transaction> transactions = transactionRepository.findByUser(user);
+        return mapTransactionsToDTO(transactions);
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<TransactionDTO> getUserTransactions(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -84,6 +102,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public boolean deleteTransaction(String transactionId) {
         if (transactionRepository.existsById(transactionId)) {
             transactionRepository.deleteById(transactionId);
@@ -94,6 +113,7 @@ public class TransactionServiceImpl implements TransactionService {
 
     @Override
     @Transactional
+    @PreAuthorize("hasRole('ADMIN')")
     public boolean markTransactionAsFailed(String transactionId) {
         return transactionRepository.findById(transactionId)
                 .map(transaction -> {
@@ -108,6 +128,16 @@ public class TransactionServiceImpl implements TransactionService {
     public TransactionDTO getTransactionById(String transactionId) {
         Transaction transaction = transactionRepository.findById(transactionId)
                 .orElseThrow(() -> new RuntimeException("Transaction not found"));
+        
+        // Check if the requesting user is the owner of this transaction or an admin
+        String currentUserEmail = currentUserUtil.getCurrentUserEmail();
+        User transactionUser = transaction.getUser();
+        
+        if (!transactionUser.getEmail().equals(currentUserEmail)) {
+            // If not the owner, check if the user has admin role
+            // Throwing an exception because non-admin users should not see others' transactions
+            throw new RuntimeException("Access denied: You can only view your own transactions");
+        }
 
         return mapTransactionToDTO(transaction);
     }

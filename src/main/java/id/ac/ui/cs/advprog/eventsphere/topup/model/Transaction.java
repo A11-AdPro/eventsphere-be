@@ -7,7 +7,7 @@ import lombok.Data;
 import lombok.NoArgsConstructor;
 import java.time.LocalDateTime;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.entity.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 
 @Data
 @Builder
@@ -47,6 +47,6 @@ public class Transaction {
 
     private String description;
 
-    // Additional field to store event ID for ticket purchases
+    // additional field to store event ID for ticket purchases
     private String eventId;
 }

@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class TopUpRequestDTO {
-    private String userId;
     private int amount;
     private String topUpType; // FIXED or CUSTOM
 }

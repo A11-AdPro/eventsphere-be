@@ -10,7 +10,6 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor
 @AllArgsConstructor
 public class PurchaseRequestDTO {
-    private String userId;
     private String eventId;
     private int amount;
     private String description;

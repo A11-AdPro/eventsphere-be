@@ -1,6 +1,6 @@
 package id.ac.ui.cs.advprog.eventsphere.topup.repository;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.entity.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.Transaction;
 
 import org.springframework.data.jpa.repository.JpaRepository;
