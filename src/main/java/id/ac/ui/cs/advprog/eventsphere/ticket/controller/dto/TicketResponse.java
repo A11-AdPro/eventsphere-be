@@ -70,6 +70,8 @@ public class TicketResponse {
         }
     }
 
+
+
     // Getters
     public Long getId() {
         return id;

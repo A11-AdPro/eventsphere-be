@@ -41,10 +41,35 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public TicketResponse purchaseTicket(Long id) {
-        Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
-        ticket.purchase();
-        return toResponse(repo.save(ticket));
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+
+        // Periksa apakah tiket sudah sold out
+        if (ticket.isSoldOut()) {
+            throw new RuntimeException("Ticket is sold out");
+        }
+
+        // Mengurangi kuota dengan memanggil metode purchase
+        ticket.purchase(); // Ini akan menambah sold dan memeriksa apakah sold >= quota
+
+        // Cek apakah sold sudah mencapai quota
+        boolean soldOutStatus = ticket.isSoldOut();
+
+        // Simpan perubahan tiket
+        Ticket updatedTicket = repo.save(ticket);
+
+        // Kembalikan response dengan detail tiket terbaru
+        return new TicketResponse.Builder()
+                .id(updatedTicket.getId())
+                .name(updatedTicket.getName())
+                .price(updatedTicket.getPrice())
+                .quota(ticket.getQuota())  // Kuota yang terupdate
+                .category(updatedTicket.getCategory())
+                .soldOut(soldOutStatus)  // Status soldOut yang terupdate
+                .eventId(updatedTicket.getEventId())
+                .build();
     }
+
 
     @Override
     public void deleteTicket(Long ticketId) {

@@ -71,6 +71,24 @@ class TicketServiceImplTest {
     }
 
     @Test
+    void purchaseTicket_shouldReduceQuotaAndSetSoldOutIfNeeded() {
+        Long ticketId = 1L;
+        Ticket ticket = new Ticket(ticketId, "VIP", 500.0, 1, TicketCategory.VIP, 1L);  // Quota 1 -> SoldOut after purchase
+
+        when(ticketRepository.findById(ticketId)).thenReturn(Optional.of(ticket));
+        when(ticketRepository.save(any(Ticket.class))).thenReturn(ticket);
+
+        TicketResponse response = ticketService.purchaseTicket(ticketId);
+
+        assertEquals(1, ticket.getSold());  // sold should now be 1
+        assertTrue(response.isSoldOut());   // should return true
+    }
+
+
+
+
+
+    @Test
     void deleteTicket_shouldCallRepository() {
         Long ticketId = 1L;
         Ticket ticket = new Ticket(ticketId, "Reguler", 150.0, 20, TicketCategory.REGULAR, 3L); // ✅ 6 args

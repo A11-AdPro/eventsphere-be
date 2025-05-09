@@ -24,7 +24,7 @@ public class Ticket {
     }
 
     public boolean isSoldOut() {
-        return sold >= quota;
+        return sold >= quota; // tetap bisa, asal quota dihitung benar
     }
 
     public void updateDetails(Double price, Integer quota) {
@@ -35,7 +35,9 @@ public class Ticket {
     public void purchase() {
         if (isSoldOut()) throw new IllegalStateException("Ticket is sold out");
         this.sold++;
+        this.quota--; // ⬅️ ini penting kalau quota memang harus berkurang
     }
+
 
     public void markDeleted() {
         this.deleted = true;
@@ -63,6 +65,8 @@ public class Ticket {
 
     public TicketCategory getCategory() { return category; }
     public void setCategory(TicketCategory category) { this.category = category; }
+
+
 
     public Long getEventId() { return eventId; }
     public void setEventId(Long eventId) { this.eventId = eventId; }
