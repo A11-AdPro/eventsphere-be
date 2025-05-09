@@ -15,3 +15,4 @@ public class ReportSummaryDTO {
     private String shortDescription;
     private LocalDateTime createdAt;
     private int commentCount;
+}
