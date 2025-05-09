@@ -2,13 +2,15 @@ package id.ac.ui.cs.advprog.eventsphere.topup.service;
 
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpRequestDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpResponseDTO;
-import id.ac.ui.cs.advprog.eventsphere.topup.entity.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.*;
 import id.ac.ui.cs.advprog.eventsphere.topup.repository.TransactionRepository;
-import id.ac.ui.cs.advprog.eventsphere.topup.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
 import id.ac.ui.cs.advprog.eventsphere.topup.strategy.TopUpFactory;
 import id.ac.ui.cs.advprog.eventsphere.topup.strategy.TopUpStrategy;
+import id.ac.ui.cs.advprog.eventsphere.topup.util.CurrentUserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -22,22 +24,27 @@ public class TopUpServiceImpl implements TopUpService {
     private final TransactionRepository transactionRepository;
     private final TopUpStrategy topUpStrategy;
     private final TopUpFactory topUpFactory;
+    private final CurrentUserUtil currentUserUtil;
 
     @Autowired
     public TopUpServiceImpl(UserRepository userRepository,
                             TransactionRepository transactionRepository,
                             TopUpStrategy topUpStrategy,
-                            TopUpFactory topUpFactory) {
+                            TopUpFactory topUpFactory,
+                            CurrentUserUtil currentUserUtil) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
         this.topUpStrategy = topUpStrategy;
         this.topUpFactory = topUpFactory;
+        this.currentUserUtil = currentUserUtil;
     }
 
     @Override
     @Transactional
     public TopUpResponseDTO processTopUp(TopUpRequestDTO topUpRequest) {
-        User user = userRepository.findById(topUpRequest.getUserId())
+        // Get the current authenticated user by email
+        String email = currentUserUtil.getCurrentUserEmail();
+        User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
         TopUp topUp;
@@ -84,7 +91,17 @@ public class TopUpServiceImpl implements TopUpService {
     }
 
     @Override
-    public List<Transaction> getUserTopUpTransactions(String userId) {
+    public List<Transaction> getCurrentUserTopUpTransactions() {
+        String email = currentUserUtil.getCurrentUserEmail();
+        User user = userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+
+        return transactionRepository.findByUserAndType(user, Transaction.TransactionType.TOP_UP);
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public List<Transaction> getUserTopUpTransactions(Long userId) {
         User user = userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
 
@@ -92,7 +109,15 @@ public class TopUpServiceImpl implements TopUpService {
     }
 
     @Override
-    public User getUserById(String userId) {
+    public User getCurrentUserDetails() {
+        String email = currentUserUtil.getCurrentUserEmail();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    @Override
+    @PreAuthorize("hasRole('ADMIN')")
+    public User getUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
     }
