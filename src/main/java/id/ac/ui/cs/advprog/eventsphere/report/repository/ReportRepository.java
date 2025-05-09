@@ -1,18 +1,22 @@
 package id.ac.ui.cs.advprog.eventsphere.report.repository;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
+import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-public interface ReportRepository {
-    Report save(Report report);
-    Optional<Report> findById(UUID id);
-    List<Report> findByAttendeeId(UUID attendeeId);
+@Repository
+public interface ReportRepository extends JpaRepository<Report, UUID> {
+
+    List<Report> findByUserId(UUID userId);
+
     List<Report> findByStatus(ReportStatus status);
-    List<Report> findAll();
-    Report update(Report report);
-    void delete(UUID id);
+
+    List<Report> findByCategory(ReportCategory category);
+
+    List<Report> findByUserIdAndStatus(UUID userId, ReportStatus status);
 }
