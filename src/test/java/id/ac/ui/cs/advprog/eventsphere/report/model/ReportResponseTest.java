@@ -1,4 +1,3 @@
-// File: src/test/java/id/ac/ui/cs/advprog/eventsphere/report/model/ReportResponseTest.java
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
 import org.junit.jupiter.api.Test;

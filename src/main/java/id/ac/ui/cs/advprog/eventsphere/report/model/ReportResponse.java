@@ -35,6 +35,13 @@ public class ReportResponse {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
+    public ReportResponse(UUID responderId, String responderRole, String message, Report report) {
+        this.responderId = responderId;
+        this.responderRole = responderRole;
+        this.setMessage(message); // Use setter for validation
+        this.report = report;
+    }
+
     public void setMessage(String message) {
         if (message != null && message.length() > MAX_MESSAGE_LENGTH) {
             throw new IllegalArgumentException("Message exceeds maximum length of " + MAX_MESSAGE_LENGTH + " characters");
