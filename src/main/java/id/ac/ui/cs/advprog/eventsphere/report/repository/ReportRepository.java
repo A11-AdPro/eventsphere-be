@@ -12,11 +12,15 @@ import java.util.UUID;
 @Repository
 public interface ReportRepository extends JpaRepository<Report, UUID> {
 
-    List<Report> findByUserId(UUID userId);
+    List<Report> findByUserId(Long userId);
+
+    List<Report> findByUserEmail(String email);
 
     List<Report> findByStatus(ReportStatus status);
 
     List<Report> findByCategory(ReportCategory category);
 
-    List<Report> findByUserIdAndStatus(UUID userId, ReportStatus status);
+    List<Report> findByUserIdAndStatus(Long userId, ReportStatus status);
+
+    List<Report> findByUserEmailAndStatus(String email, ReportStatus status);
 }

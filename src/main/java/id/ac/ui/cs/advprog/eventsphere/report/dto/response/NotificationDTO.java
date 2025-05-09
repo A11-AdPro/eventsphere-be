@@ -1,4 +1,3 @@
-
 package id.ac.ui.cs.advprog.eventsphere.report.dto.response;
 
 import lombok.Data;
@@ -9,7 +8,8 @@ import java.util.UUID;
 @Data
 public class NotificationDTO {
     private UUID id;
-    private UUID recipientId;
+    private Long recipientId;
+    private String recipientEmail;
     private String senderRole;
     private String title;
     private String message;

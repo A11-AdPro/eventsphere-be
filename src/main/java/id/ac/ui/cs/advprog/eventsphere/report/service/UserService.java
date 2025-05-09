@@ -1,33 +1,60 @@
 package id.ac.ui.cs.advprog.eventsphere.report.service;
 
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+
 import java.util.List;
 import java.util.UUID;
+import java.util.stream.Collectors;
 
 @Service
 public class UserService {
-    public String getUserEmail(UUID userId) {
-        return "user@example.com";
+
+    private final UserRepository userRepository;
+
+    @Autowired
+    public UserService(UserRepository userRepository) {
+        this.userRepository = userRepository;
+    }
+
+    public String getUserEmail(Long userId) {
+        return userRepository.findById(userId)
+                .map(User::getEmail)
+                .orElse("user@example.com");
     }
 
     public List<String> getAdminEmails() {
-        return List.of("admin1@example.com", "admin2@example.com");
+        return userRepository.findAll().stream()
+                .filter(user -> user.getRole() == Role.ADMIN)
+                .map(User::getEmail)
+                .collect(Collectors.toList());
     }
 
     public List<String> getOrganizerEmails(UUID eventId) {
-        return List.of("organizer@example.com");
+        // In a real implementation, we would query for organizers of this specific event
+        // For now, return all organizers
+        return userRepository.findAll().stream()
+                .filter(user -> user.getRole() == Role.ORGANIZER)
+                .map(User::getEmail)
+                .collect(Collectors.toList());
     }
 
-    public List<UUID> getAdminIds() {
-        return List.of(
-                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
-                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12")
-        );
+    public List<Long> getAdminIds() {
+        return userRepository.findAll().stream()
+                .filter(user -> user.getRole() == Role.ADMIN)
+                .map(User::getId)
+                .collect(Collectors.toList());
     }
 
-    public List<UUID> getOrganizerIds(UUID eventId) {
-        return List.of(
-                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13")
-        );
+    public List<Long> getOrganizerIds(UUID eventId) {
+        // In a real implementation, we would query for organizers of this specific event
+        // For now, return all organizers
+        return userRepository.findAll().stream()
+                .filter(user -> user.getRole() == Role.ORGANIZER)
+                .map(User::getId)
+                .collect(Collectors.toList());
     }
 }

@@ -21,7 +21,10 @@ public class Report {
     private UUID id;
 
     @Column(name = "user_id", nullable = false)
-    private UUID userId;
+    private Long userId;
+
+    @Column(name = "user_email")
+    private String userEmail;
 
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
@@ -51,8 +54,9 @@ public class Report {
     @Transient
     private List<ReportObserver> observers = new ArrayList<>();
 
-    public Report(UUID userId, ReportCategory category, String description) {
+    public Report(Long userId, String userEmail, ReportCategory category, String description) {
         this.userId = userId;
+        this.userEmail = userEmail;
         this.category = category;
         this.description = description;
     }

@@ -18,7 +18,10 @@ public class Notification {
     private UUID id;
 
     @Column(name = "recipient_id", nullable = false)
-    private UUID recipientId;
+    private Long recipientId;
+
+    @Column(name = "recipient_email")
+    private String recipientEmail;
 
     @Column(name = "sender_role", nullable = false)
     private String senderRole;
@@ -41,8 +44,9 @@ public class Notification {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public Notification(UUID recipientId, String senderRole, String title, String message, String type, UUID relatedEntityId) {
+    public Notification(Long recipientId, String recipientEmail, String senderRole, String title, String message, String type, UUID relatedEntityId) {
         this.recipientId = recipientId;
+        this.recipientEmail = recipientEmail;
         this.senderRole = senderRole;
         this.title = title;
         this.message = message;

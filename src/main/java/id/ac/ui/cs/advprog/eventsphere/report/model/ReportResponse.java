@@ -24,7 +24,10 @@ public class ReportResponse {
     private Report report;
 
     @Column(name = "responder_id", nullable = false)
-    private UUID responderId;
+    private Long responderId;
+
+    @Column(name = "responder_email")
+    private String responderEmail;
 
     @Column(name = "responder_role", nullable = false)
     private String responderRole;
@@ -35,8 +38,9 @@ public class ReportResponse {
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 
-    public ReportResponse(UUID responderId, String responderRole, String message, Report report) {
+    public ReportResponse(Long responderId, String responderEmail, String responderRole, String message, Report report) {
         this.responderId = responderId;
+        this.responderEmail = responderEmail;
         this.responderRole = responderRole;
         this.setMessage(message); // Use setter for validation
         this.report = report;

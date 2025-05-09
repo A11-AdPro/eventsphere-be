@@ -35,6 +35,7 @@ public class NotificationService implements ReportObserver {
 
         Notification notification = new Notification(
                 report.getUserId(),
+                report.getUserEmail(),
                 "SYSTEM",
                 title,
                 message,
@@ -58,6 +59,7 @@ public class NotificationService implements ReportObserver {
 
         Notification notification = new Notification(
                 report.getUserId(),
+                report.getUserEmail(),
                 response.getResponderRole(),
                 title,
                 message,
@@ -70,10 +72,11 @@ public class NotificationService implements ReportObserver {
 
     public void notifyNewReport(Report report) {
         // Get admin IDs
-        List<UUID> adminIds = userService.getAdminIds();
+        List<Long> adminIds = userService.getAdminIds();
 
         // Create notification for each admin
-        for (UUID adminId : adminIds) {
+        for (Long adminId : adminIds) {
+            String adminEmail = userService.getUserEmail(adminId);
             String title = "New Report Submitted";
             String message = "A new report has been submitted:\n\n" +
                     "Category: " + report.getCategory().getDisplayName() + "\n" +
@@ -82,6 +85,7 @@ public class NotificationService implements ReportObserver {
 
             Notification notification = new Notification(
                     adminId,
+                    adminEmail,
                     "SYSTEM",
                     title,
                     message,
@@ -95,10 +99,11 @@ public class NotificationService implements ReportObserver {
 
     public void notifyOrganizerOfReport(Report report, UUID eventId) {
         // Get organizer IDs for the event
-        List<UUID> organizerIds = userService.getOrganizerIds(eventId);
+        List<Long> organizerIds = userService.getOrganizerIds(eventId);
 
         // Create notification for each organizer
-        for (UUID organizerId : organizerIds) {
+        for (Long organizerId : organizerIds) {
+            String organizerEmail = userService.getUserEmail(organizerId);
             String title = "New Report Related to Your Event";
             String message = "A new report has been submitted for an event you manage:\n\n" +
                     "Category: " + report.getCategory().getDisplayName() + "\n" +
@@ -107,6 +112,7 @@ public class NotificationService implements ReportObserver {
 
             Notification notification = new Notification(
                     organizerId,
+                    organizerEmail,
                     "SYSTEM",
                     title,
                     message,
@@ -118,16 +124,28 @@ public class NotificationService implements ReportObserver {
         }
     }
 
-    public List<Notification> getUserNotifications(UUID userId) {
+    public List<Notification> getUserNotifications(Long userId) {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
     }
 
-    public List<Notification> getUnreadUserNotifications(UUID userId) {
+    public List<Notification> getUserNotificationsByEmail(String email) {
+        return notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email);
+    }
+
+    public List<Notification> getUnreadUserNotifications(Long userId) {
         return notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
     }
 
-    public long countUnreadNotifications(UUID userId) {
+    public List<Notification> getUnreadUserNotificationsByEmail(String email) {
+        return notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
+    }
+
+    public long countUnreadNotifications(Long userId) {
         return notificationRepository.countByRecipientIdAndRead(userId, false);
+    }
+
+    public long countUnreadNotificationsByEmail(String email) {
+        return notificationRepository.countByRecipientEmailAndRead(email, false);
     }
 
     public Notification markNotificationAsRead(UUID notificationId) {
@@ -138,8 +156,17 @@ public class NotificationService implements ReportObserver {
         return notificationRepository.save(notification);
     }
 
-    public void markAllNotificationsAsRead(UUID userId) {
+    public void markAllNotificationsAsRead(Long userId) {
         List<Notification> unreadNotifications = notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
+
+        for (Notification notification : unreadNotifications) {
+            notification.markAsRead();
+            notificationRepository.save(notification);
+        }
+    }
+
+    public void markAllNotificationsAsReadByEmail(String email) {
+        List<Notification> unreadNotifications = notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
 
         for (Notification notification : unreadNotifications) {
             notification.markAsRead();

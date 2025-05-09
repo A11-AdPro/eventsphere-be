@@ -10,13 +10,21 @@ import java.util.UUID;
 @Repository
 public interface NotificationRepository extends JpaRepository<Notification, UUID> {
 
-    List<Notification> findByRecipientId(UUID recipientId);
+    List<Notification> findByRecipientId(Long recipientId);
 
-    List<Notification> findByRecipientIdAndReadOrderByCreatedAtDesc(UUID recipientId, boolean read);
+    List<Notification> findByRecipientEmail(String email);
 
-    List<Notification> findByRecipientIdOrderByCreatedAtDesc(UUID recipientId);
+    List<Notification> findByRecipientIdAndReadOrderByCreatedAtDesc(Long recipientId, boolean read);
+
+    List<Notification> findByRecipientEmailAndReadOrderByCreatedAtDesc(String email, boolean read);
+
+    List<Notification> findByRecipientIdOrderByCreatedAtDesc(Long recipientId);
+
+    List<Notification> findByRecipientEmailOrderByCreatedAtDesc(String email);
 
     List<Notification> findByRelatedEntityId(UUID relatedEntityId);
 
-    long countByRecipientIdAndRead(UUID recipientId, boolean read);
+    long countByRecipientIdAndRead(Long recipientId, boolean read);
+
+    long countByRecipientEmailAndRead(String email, boolean read);
 }

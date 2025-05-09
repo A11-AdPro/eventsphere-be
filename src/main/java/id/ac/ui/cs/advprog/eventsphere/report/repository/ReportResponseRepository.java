@@ -12,7 +12,9 @@ public interface ReportResponseRepository extends JpaRepository<ReportResponse, 
 
     List<ReportResponse> findByReportId(UUID reportId);
 
-    List<ReportResponse> findByResponderId(UUID responderId);
+    List<ReportResponse> findByResponderId(Long responderId);
+
+    List<ReportResponse> findByResponderEmail(String email);
 
     List<ReportResponse> findByResponderRole(String responderRole);
 }

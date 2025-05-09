@@ -9,7 +9,8 @@ import java.util.UUID;
 public class ReportCommentDTO {
     private UUID id;
     private UUID reportId;
-    private UUID responderId;
+    private Long responderId;
+    private String responderEmail;
     private String responderRole;
     private String message;
     private LocalDateTime createdAt;

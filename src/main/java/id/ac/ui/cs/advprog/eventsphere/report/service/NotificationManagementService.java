@@ -21,18 +21,32 @@ public class NotificationManagementService {
         this.notificationRepository = notificationRepository;
     }
 
-    public List<NotificationDTO> getUserNotifications(UUID userId) {
+    public List<NotificationDTO> getUserNotifications(Long userId) {
         List<Notification> notifications = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
         return convertToDTOList(notifications);
     }
 
-    public List<NotificationDTO> getUnreadUserNotifications(UUID userId) {
+    public List<NotificationDTO> getUserNotificationsByEmail(String email) {
+        List<Notification> notifications = notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email);
+        return convertToDTOList(notifications);
+    }
+
+    public List<NotificationDTO> getUnreadUserNotifications(Long userId) {
         List<Notification> notifications = notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
         return convertToDTOList(notifications);
     }
 
-    public long countUnreadNotifications(UUID userId) {
+    public List<NotificationDTO> getUnreadUserNotificationsByEmail(String email) {
+        List<Notification> notifications = notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
+        return convertToDTOList(notifications);
+    }
+
+    public long countUnreadNotifications(Long userId) {
         return notificationRepository.countByRecipientIdAndRead(userId, false);
+    }
+
+    public long countUnreadNotificationsByEmail(String email) {
+        return notificationRepository.countByRecipientEmailAndRead(email, false);
     }
 
     public NotificationDTO markNotificationAsRead(UUID notificationId) {
@@ -43,8 +57,17 @@ public class NotificationManagementService {
         return convertToDTO(notificationRepository.save(notification));
     }
 
-    public void markAllNotificationsAsRead(UUID userId) {
+    public void markAllNotificationsAsRead(Long userId) {
         List<Notification> unreadNotifications = notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
+
+        for (Notification notification : unreadNotifications) {
+            notification.markAsRead();
+            notificationRepository.save(notification);
+        }
+    }
+
+    public void markAllNotificationsAsReadByEmail(String email) {
+        List<Notification> unreadNotifications = notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
 
         for (Notification notification : unreadNotifications) {
             notification.markAsRead();
@@ -63,6 +86,7 @@ public class NotificationManagementService {
         NotificationDTO dto = new NotificationDTO();
         dto.setId(notification.getId());
         dto.setRecipientId(notification.getRecipientId());
+        dto.setRecipientEmail(notification.getRecipientEmail());
         dto.setSenderRole(notification.getSenderRole());
         dto.setTitle(notification.getTitle());
         dto.setMessage(notification.getMessage());

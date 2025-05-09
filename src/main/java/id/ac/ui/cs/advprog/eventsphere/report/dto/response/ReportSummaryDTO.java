@@ -10,6 +10,8 @@ import java.util.UUID;
 @Data
 public class ReportSummaryDTO {
     private UUID id;
+    private Long userId;
+    private String userEmail;
     private ReportCategory category;
     private ReportStatus status;
     private String shortDescription;

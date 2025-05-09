@@ -12,7 +12,8 @@ import java.util.UUID;
 @Data
 public class ReportResponseDTO {
     private UUID id;
-    private UUID userId;
+    private Long userId;
+    private String userEmail;
     private ReportCategory category;
     private String description;
     private ReportStatus status;

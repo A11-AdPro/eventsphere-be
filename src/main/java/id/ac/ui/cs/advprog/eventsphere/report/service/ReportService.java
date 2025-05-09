@@ -1,5 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.report.service;
 
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportCommentRequest;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportRequest;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.response.ReportCommentDTO;
@@ -28,23 +30,35 @@ public class ReportService {
     private final ReportResponseRepository responseRepository;
     private final NotificationService notificationService;
     private final FileStorageService fileStorageService;
+    private final UserRepository userRepository;
 
     @Autowired
     public ReportService(
             ReportRepository reportRepository,
             ReportResponseRepository responseRepository,
             NotificationService notificationService,
-            FileStorageService fileStorageService) {
+            FileStorageService fileStorageService,
+            UserRepository userRepository) {
         this.reportRepository = reportRepository;
         this.responseRepository = responseRepository;
         this.notificationService = notificationService;
         this.fileStorageService = fileStorageService;
+        this.userRepository = userRepository;
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest, List<MultipartFile> attachments) throws IOException {
+        // Get user email from repository if not provided
+        String userEmail = createRequest.getUserEmail();
+        if (userEmail == null || userEmail.isEmpty()) {
+            userEmail = userRepository.findById(createRequest.getUserId())
+                    .map(User::getEmail)
+                    .orElse("unknown@example.com");
+        }
+
         // Create new Report entity from request
         Report report = new Report();
         report.setUserId(createRequest.getUserId());
+        report.setUserEmail(userEmail);
         report.setCategory(createRequest.getCategory());
         report.setDescription(createRequest.getDescription());
         report.setStatus(ReportStatus.PENDING);
@@ -52,7 +66,7 @@ public class ReportService {
         // Register observer
         report.getObservers().add(notificationService);
 
-        // Process attachments
+        // Process attachments if any
         if (attachments != null && !attachments.isEmpty()) {
             for (MultipartFile file : attachments) {
                 if (!file.isEmpty()) {
@@ -72,13 +86,23 @@ public class ReportService {
         return convertToResponseDTO(savedReport);
     }
 
+    // Rest of the service methods remain the same
+    // ...
+
     public ReportResponseDTO getReportById(UUID id) {
         Report report = findReportById(id);
         return convertToResponseDTO(report);
     }
 
-    public List<ReportSummaryDTO> getReportsByUserId(UUID userId) {
+    public List<ReportSummaryDTO> getReportsByUserId(Long userId) {
         List<Report> reports = reportRepository.findByUserId(userId);
+        return reports.stream()
+                .map(this::convertToSummaryDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<ReportSummaryDTO> getReportsByUserEmail(String email) {
+        List<Report> reports = reportRepository.findByUserEmail(email);
         return reports.stream()
                 .map(this::convertToSummaryDTO)
                 .collect(Collectors.toList());
@@ -147,7 +171,7 @@ public class ReportService {
     public void deleteReport(UUID reportId) throws IOException {
         Report report = findReportById(reportId);
 
-        // Delete attachments
+        // Delete attachments if any
         for (String attachmentPath : report.getAttachments()) {
             fileStorageService.deleteFile(attachmentPath);
         }
@@ -161,12 +185,12 @@ public class ReportService {
                 .orElseThrow(() -> new EntityNotFoundException("Report not found with id: " + id));
     }
 
-    // Manual conversion methods instead of using Mappers
-
+    // Manual conversion methods
     private ReportResponseDTO convertToResponseDTO(Report report) {
         ReportResponseDTO dto = new ReportResponseDTO();
         dto.setId(report.getId());
         dto.setUserId(report.getUserId());
+        dto.setUserEmail(report.getUserEmail());
         dto.setCategory(report.getCategory());
         dto.setDescription(report.getDescription());
         dto.setStatus(report.getStatus());
@@ -188,6 +212,8 @@ public class ReportService {
     private ReportSummaryDTO convertToSummaryDTO(Report report) {
         ReportSummaryDTO dto = new ReportSummaryDTO();
         dto.setId(report.getId());
+        dto.setUserId(report.getUserId());
+        dto.setUserEmail(report.getUserEmail());
         dto.setCategory(report.getCategory());
         dto.setStatus(report.getStatus());
         dto.setCreatedAt(report.getCreatedAt());
@@ -213,6 +239,7 @@ public class ReportService {
         dto.setId(comment.getId());
         dto.setReportId(comment.getReport() != null ? comment.getReport().getId() : null);
         dto.setResponderId(comment.getResponderId());
+        dto.setResponderEmail(comment.getResponderEmail());
         dto.setResponderRole(comment.getResponderRole());
         dto.setMessage(comment.getMessage());
         dto.setCreatedAt(comment.getCreatedAt());
