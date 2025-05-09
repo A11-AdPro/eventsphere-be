@@ -1,4 +1,3 @@
-// File: src/main/java/id/ac/ui/cs/advprog/eventsphere/report/model/Report.java
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
 import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportObserver;

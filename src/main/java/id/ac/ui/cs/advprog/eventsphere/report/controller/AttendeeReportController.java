@@ -1,4 +1,3 @@
-// File: src/main/java/id/ac/ui/cs/advprog/eventsphere/report/controller/AttendeeReportController.java
 package id.ac.ui.cs.advprog.eventsphere.report.controller;
 
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportCommentRequest;
