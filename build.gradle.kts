@@ -30,8 +30,10 @@ val webdrivermanagerVersion = "5.6.3"
 val junitJupiterVersion = "5.9.1"
 
 dependencies {
-   implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
    implementation("org.springframework.boot:spring-boot-starter-web")
+   implementation("org.springframework.boot:spring-boot-starter-security")
+   implementation("org.springframework.boot:spring-boot-starter-validation")
+   implementation("org.springframework.boot:spring-boot-starter-thymeleaf")
    compileOnly("org.projectlombok:lombok")
    developmentOnly("org.springframework.boot:spring-boot-devtools")
    annotationProcessor("org.springframework.boot:spring-boot-configuration-processor")
@@ -42,9 +44,15 @@ dependencies {
    testImplementation("io.github.bonigarcia:selenium-jupiter:$seleniumJupiterVersion")
    testImplementation("io.github.bonigarcia:webdrivermanager:$webdrivermanagerVersion")
    testImplementation("org.junit.jupiter:junit-jupiter:$junitJupiterVersion")
-   implementation("org.postgresql:postgresql:42.6.0")
+   testImplementation("org.springframework.security:spring-security-test")
+   implementation("org.postgresql:postgresql")
    implementation("org.springframework.boot:spring-boot-starter-data-jpa")
    implementation("me.paulschwarz:spring-dotenv:3.0.0")
+   testImplementation("com.h2database:h2")
+   testRuntimeOnly("com.h2database:h2")
+   implementation("io.jsonwebtoken:jjwt-api:0.11.5")
+   runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
+   runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
 }
 
 tasks.register<Test>("unitTest") {
