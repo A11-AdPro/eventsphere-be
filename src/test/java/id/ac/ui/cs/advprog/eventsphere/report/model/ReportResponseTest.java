@@ -1,3 +1,4 @@
+// File: src/test/java/id/ac/ui/cs/advprog/eventsphere/report/model/ReportResponseTest.java
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
 import org.junit.jupiter.api.Test;
@@ -53,5 +54,21 @@ public class ReportResponseTest {
         String validMessage = "This is a valid message";
         response.setMessage(validMessage);
         assertEquals(validMessage, response.getMessage());
+    }
+
+    @Test
+    public void testReportResponseConstructor() {
+        UUID responderId = UUID.randomUUID();
+        String responderRole = "ADMIN";
+        String message = "Test message";
+        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test report");
+
+        ReportResponse response = new ReportResponse(responderId, responderRole, message, report);
+
+        assertEquals(responderId, response.getResponderId());
+        assertEquals(responderRole, response.getResponderRole());
+        assertEquals(message, response.getMessage());
+        assertEquals(report, response.getReport());
+        assertNotNull(response.getCreatedAt());
     }
 }
