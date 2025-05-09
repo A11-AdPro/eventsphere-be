@@ -4,6 +4,7 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
+import org.springframework.security.access.prepost.PreAuthorize;
 import id.ac.ui.cs.advprog.eventsphere.review.service.ReviewService;
 import id.ac.ui.cs.advprog.eventsphere.review.dto.ReviewDto;
 import id.ac.ui.cs.advprog.eventsphere.review.dto.ReviewResponseDto;
@@ -24,6 +25,7 @@ public class ReviewController {
     }
 
     @PostMapping("/reviews")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> createReview(@RequestBody ReviewDto reviewDto) {
         reviewService.createReview(reviewDto.getRating(), reviewDto.getComment());
 
@@ -35,6 +37,7 @@ public class ReviewController {
     }
 
     @PostMapping("/events/{eventId}/reviews")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> createEventReview(
             @PathVariable Long eventId,
             @RequestParam int rating,
@@ -59,6 +62,7 @@ public class ReviewController {
     }
 
     @GetMapping("/events/{eventId}/reviews")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Map<String, Object>> getEventReviews(
             @PathVariable Long eventId,
             @RequestParam(required = false, defaultValue = "newest") String sortBy,
@@ -74,6 +78,7 @@ public class ReviewController {
     }
 
     @GetMapping("/reviews/{reviewId}")
+    @PreAuthorize("permitAll()")
     public ResponseEntity<Map<String, Object>> getReview(@PathVariable Long reviewId) {
         try {
             Map<String, Object> response = new HashMap<>();
@@ -91,6 +96,7 @@ public class ReviewController {
     }
 
     @PutMapping("/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> updateReview(
             @PathVariable Long reviewId,
             @RequestBody ReviewDto reviewDto) {
@@ -113,6 +119,7 @@ public class ReviewController {
     }
 
     @DeleteMapping("/reviews/{reviewId}")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> deleteReview(@PathVariable Long reviewId) {
         try {
             reviewService.deleteReview(reviewId);
@@ -132,6 +139,7 @@ public class ReviewController {
     }
 
     @PostMapping("/reviews/{reviewId}/respond")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> respondToReview(
             @PathVariable Long reviewId,
             @RequestBody ReviewResponseDto responseDto) {
@@ -154,6 +162,7 @@ public class ReviewController {
     }
 
     @PostMapping("/reviews/{reviewId}/report")
+    @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Map<String, Object>> reportReview(
             @PathVariable Long reviewId,
             @RequestBody ReviewReportDto reportDto) {
@@ -176,6 +185,7 @@ public class ReviewController {
     }
 
     @GetMapping("/admin/reviews/reported")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> getReportedReviews() {
         Map<String, Object> response = new HashMap<>();
         response.put("success", true);
@@ -185,6 +195,7 @@ public class ReviewController {
     }
 
     @PostMapping("/admin/reviews/{reviewId}/restore")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, Object>> restoreReportedReview(@PathVariable Long reviewId) {
         try {
             reviewService.restoreReportedReview(reviewId);

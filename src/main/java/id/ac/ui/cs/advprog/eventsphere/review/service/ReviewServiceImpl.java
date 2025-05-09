@@ -7,6 +7,9 @@ import id.ac.ui.cs.advprog.eventsphere.review.repository.ReviewRepository;
 import id.ac.ui.cs.advprog.eventsphere.review.model.Review;
 import id.ac.ui.cs.advprog.eventsphere.review.event.ReviewCreatedEvent;
 import id.ac.ui.cs.advprog.eventsphere.review.exception.ReviewException;
+import id.ac.ui.cs.advprog.eventsphere.authentication.service.AuthService;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 
 import java.io.IOException;
 import java.nio.file.Files;
@@ -20,11 +23,14 @@ import java.util.stream.Collectors;
 public class ReviewServiceImpl implements ReviewService {
     private final ReviewRepository reviewRepository;
     private final ApplicationEventPublisher publisher;
+    private final AuthService authService;
     private static final Path UPLOAD_DIR = Paths.get("uploads/reviews");
 
-    public ReviewServiceImpl(ReviewRepository reviewRepository, ApplicationEventPublisher publisher) {
+    public ReviewServiceImpl(ReviewRepository reviewRepository, ApplicationEventPublisher publisher,
+            AuthService authService) {
         this.reviewRepository = reviewRepository;
         this.publisher = publisher;
+        this.authService = authService;
 
         // Create upload directory if it doesn't exist
         try {
@@ -41,13 +47,13 @@ public class ReviewServiceImpl implements ReviewService {
         validateRating(rating);
         validateComment(comment);
 
+        User currentUser = authService.getCurrentUser();
+
         Review review = new Review();
         review.setRating(rating);
         review.setComment(comment);
-
-        // In a real application, we'd set the user ID from the authenticated user
-        review.setUserId(1L);
-        review.setUsername("default_user");
+        review.setUserId(currentUser.getId());
+        review.setUsername(currentUser.getUsername());
 
         reviewRepository.save(review);
         publisher.publishEvent(new ReviewCreatedEvent(this, review));
@@ -60,9 +66,10 @@ public class ReviewServiceImpl implements ReviewService {
         validateComment(comment);
         validateImages(images);
 
-        // In a real application, we'd get the current authenticated user
-        Long currentUserId = 1L; // Mock user ID
-        String currentUsername = "testuser"; // Mock username
+        // Get authenticated user
+        User currentUser = authService.getCurrentUser();
+        Long currentUserId = currentUser.getId();
+        String currentUsername = currentUser.getUsername();
 
         // Check if user already reviewed this event
         if (reviewRepository.existsByEventIdAndUserId(eventId, currentUserId)) {
@@ -147,14 +154,16 @@ public class ReviewServiceImpl implements ReviewService {
     public void updateReview(Long reviewId, int rating, String comment) {
         Review review = findReviewById(reviewId);
 
+        // Check if the current user is authorized to update this review
+        User currentUser = authService.getCurrentUser();
+        if (!isReviewOwnerOrAdmin(review, currentUser)) {
+            throw new ReviewException("You don't have permission to update this review");
+        }
+
         // Check if the review is editable (within 7 days)
         if (!review.isEditable()) {
             throw new ReviewException("Reviews can only be edited within 7 days of creation");
         }
-
-        // In a real application, we'd check if the current user is the owner of the
-        // review
-        // For now, we'll simulate this check has passed
 
         validateRating(rating);
         validateComment(comment);
@@ -170,11 +179,11 @@ public class ReviewServiceImpl implements ReviewService {
     public void deleteReview(Long reviewId) {
         Review review = findReviewById(reviewId);
 
-        // In a real application, we'd check if the current user has permission to
-        // delete:
-        // - The review creator can always delete their own review
-        // - Admins can delete any review
-        // For now, we'll simulate this check has passed
+        // Check if the current user is authorized to delete this review
+        User currentUser = authService.getCurrentUser();
+        if (!isReviewOwnerOrAdmin(review, currentUser)) {
+            throw new ReviewException("You don't have permission to delete this review");
+        }
 
         reviewRepository.delete(reviewId);
     }
@@ -183,9 +192,16 @@ public class ReviewServiceImpl implements ReviewService {
     public void respondToReview(Long reviewId, String response) {
         Review review = findReviewById(reviewId);
 
-        // In a real application, we'd check if the current user is an organizer of this
-        // event
-        // For now, we'll simulate this check has passed
+        // Check if current user is an organizer
+        User currentUser = authService.getCurrentUser();
+        if (currentUser.getRole() != Role.ORGANIZER && currentUser.getRole() != Role.ADMIN) {
+            throw new ReviewException("Only organizers can respond to reviews");
+        }
+
+        // In a real application with an event service, we would also check:
+        // if the currentUser is actually the organizer of the event that this review
+        // belongs to
+        // For now we'll assume the role check is sufficient
 
         validateOrganizerResponse(response);
 
@@ -212,8 +228,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public List<Map<String, Object>> getReportedReviews() {
-        // In a real application, we'd check if the current user is an admin
-        // For now, we'll simulate this check has passed
+        // Check if current user is admin
+        User currentUser = authService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new ReviewException("Only administrators can access reported reviews");
+        }
 
         List<Review> reportedReviews = reviewRepository.findReportedReviews();
 
@@ -224,8 +243,11 @@ public class ReviewServiceImpl implements ReviewService {
 
     @Override
     public void restoreReportedReview(Long reviewId) {
-        // In a real application, we'd check if the current user is an admin
-        // For now, we'll simulate this check has passed
+        // Check if current user is admin
+        User currentUser = authService.getCurrentUser();
+        if (currentUser.getRole() != Role.ADMIN) {
+            throw new ReviewException("Only administrators can restore reported reviews");
+        }
 
         Review review = findReviewById(reviewId);
 
@@ -323,5 +345,11 @@ public class ReviewServiceImpl implements ReviewService {
         } catch (IOException e) {
             throw new ReviewException("Failed to save image files", e);
         }
+    }
+
+    // Helper method to check if the user is the review owner or an admin
+    private boolean isReviewOwnerOrAdmin(Review review, User user) {
+        return review.getUserId().equals(user.getId()) ||
+                user.getRole() == Role.ADMIN;
     }
 }
