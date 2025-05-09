@@ -1,15 +1,18 @@
 package id.ac.ui.cs.advprog.eventsphere.report.repository;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.stereotype.Repository;
 
 import java.util.List;
-import java.util.Optional;
 import java.util.UUID;
 
-public interface ReportResponseRepository {
-    ReportResponse save(ReportResponse response);
-    Optional<ReportResponse> findById(UUID id);
+@Repository
+public interface ReportResponseRepository extends JpaRepository<ReportResponse, UUID> {
+
     List<ReportResponse> findByReportId(UUID reportId);
-    void delete(UUID id);
-    void deleteByReportId(UUID reportId);
+
+    List<ReportResponse> findByResponderId(UUID responderId);
+
+    List<ReportResponse> findByResponderRole(String responderRole);
 }
