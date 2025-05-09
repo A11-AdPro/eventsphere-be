@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.authentication.model;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import java.time.LocalDateTime;
 
@@ -123,15 +124,149 @@ class UserTest {
     }
 
     @Test
-    void testToString() {
-        user.setId(1L);
-        user.setEmail("test@example.com");
-        user.setFullName("Test User");
+    @DisplayName("Should test toString method")
+    public void testToString() {
+        User user = User.builder()
+                .id(1L)
+                .email("test@example.com")
+                .role(Role.ATTENDEE)
+                .fullName("Test Attendee")
+                .balance(1000)
+                .build();
+        
+        String result = user.toString();
+        
+        assertTrue(result.contains("1"));
+        assertTrue(result.contains("test@example.com"));
+        assertTrue(result.contains("ATTENDEE"));  
+        assertTrue(result.contains("Test Attendee"));
+        assertTrue(result.contains("1000"));
+    }
 
-        String toString = user.toString();
+    @Test
+    @DisplayName("Should successfully top up user balance with positive amount")
+    void testTopUpWithPositiveAmount() {
+        user.setBalance(100);
+        user.topUp(50);
+        assertEquals(150, user.getBalance());
+    }
 
-        assertTrue(toString.contains("id=1"));
-        assertTrue(toString.contains("email=test@example.com"));
-        assertTrue(toString.contains("fullName=Test User"));
+    @Test
+    @DisplayName("Should throw exception when topping up with negative amount")
+    void testTopUpWithNegativeAmount() {
+        user.setBalance(100);
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            user.topUp(-50);
+        });
+        assertEquals("Top-up amount must be positive", exception.getMessage());
+        assertEquals(100, user.getBalance());
+    }
+
+    @Test
+    @DisplayName("Should successfully deduct balance when sufficient")
+    void testDeductBalanceSuccess() {
+        user.setBalance(100);
+        boolean result = user.deductBalance(50);
+        assertTrue(result);
+        assertEquals(50, user.getBalance());
+    }
+
+    @Test
+    @DisplayName("Should fail to deduct balance when insufficient")
+    void testDeductBalanceInsufficientFunds() {
+        user.setBalance(100);
+        boolean result = user.deductBalance(150);
+        assertFalse(result);
+        assertEquals(100, user.getBalance());
+    }
+
+    @Test
+    @DisplayName("Should throw exception when deducting negative amount")
+    void testDeductBalanceNegativeAmount() {
+        user.setBalance(100);
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            user.deductBalance(-50);
+        });
+        assertEquals("Deduction amount must be positive", exception.getMessage());
+        assertEquals(100, user.getBalance());
+    }
+
+    @Test
+    @DisplayName("Should initialize null balance when topping up")
+    void testTopUpWithNullBalance() {
+        // Create a new user with null balance using reflection
+        try {
+            java.lang.reflect.Field balanceField = User.class.getDeclaredField("balance");
+            balanceField.setAccessible(true);
+            balanceField.set(user, null);
+            
+            user.topUp(50);
+            assertEquals(50, user.getBalance());
+        } catch (Exception e) {
+            fail("Failed to set null balance: " + e.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("Should fail to deduct from null balance")
+    void testDeductBalanceFromNullBalance() {
+        // Create a new user with null balance using reflection
+        try {
+            java.lang.reflect.Field balanceField = User.class.getDeclaredField("balance");
+            balanceField.setAccessible(true);
+            balanceField.set(user, null);
+            
+            boolean result = user.deductBalance(50);
+            assertFalse(result);
+        } catch (Exception e) {
+            fail("Failed to set null balance: " + e.getMessage());
+        }
+    }
+
+    @Test
+    @DisplayName("Should return 0 for null balance")
+    void testGetBalanceWithNullBalance() {
+        // Create a new user with null balance using reflection
+        try {
+            java.lang.reflect.Field balanceField = User.class.getDeclaredField("balance");
+            balanceField.setAccessible(true);
+            balanceField.set(user, null);
+            
+            assertEquals(0, user.getBalance());
+        } catch (Exception e) {
+            fail("Failed to set null balance: " + e.getMessage());
+        }
+    }
+
+
+    @Test
+    @DisplayName("Should get fullName as username when fullName exists")
+    void testGetUsernameWithFullName() {
+        user.setFullName("John Doe");
+        user.setEmail("john@example.com");
+        assertEquals("John Doe", user.getUsername());
+    }
+
+    @Test
+    @DisplayName("Should get email as username when fullName is empty")
+    void testGetUsernameWithEmptyFullName() {
+        user.setFullName("");
+        user.setEmail("john@example.com");
+        assertEquals("john@example.com", user.getUsername());
+    }
+
+    @Test
+    @DisplayName("Should get email as username when fullName is null")
+    void testGetUsernameWithNullFullName() {
+        user.setFullName(null);
+        user.setEmail("john@example.com");
+        assertEquals("john@example.com", user.getUsername());
+    }
+
+    @Test
+    @DisplayName("Should set balance correctly")
+    void testSetBalance() {
+        user.setBalance(200);
+        assertEquals(200, user.getBalance());
     }
 }

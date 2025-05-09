@@ -2,52 +2,79 @@ package id.ac.ui.cs.advprog.eventsphere.authentication.repository;
 
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.Optional;
+import java.util.UUID;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
-public class UserRepositoryTest {
+@ActiveProfiles("test")
+class UserRepositoryTest {
 
     @Autowired
     private UserRepository userRepository;
 
-    @Test
-    public void testFindByEmail() {
-        // Given
-        User user = new User();
-        user.setEmail("test@example.com");
-        user.setPassword("password");
-        user.setFullName("Test User");
-        user.setRole(Role.ATTENDEE);
-        userRepository.save(user);
+    private User testUser;
+    private String uniqueEmail;
 
-        // When
-        Optional<User> foundUser = userRepository.findByEmail("test@example.com");
+    @BeforeEach
+    void setUp() {
+        // Clear any existing data
+        userRepository.deleteAll();
 
-        // Then
-        assertThat(foundUser).isPresent();
-        assertThat(foundUser.get().getEmail()).isEqualTo("test@example.com");
+        // Create a unique email for each test
+        uniqueEmail = "test-" + UUID.randomUUID() + "@example.com";
+        
+        // Create a test user
+        testUser = User.builder()
+                .email(uniqueEmail)
+                .password("password123")
+                .role(Role.ATTENDEE)
+                .fullName("Test User")
+                .balance(1000)
+                .build();
+
+        // Save the user
+        testUser = userRepository.save(testUser);
     }
 
     @Test
-    public void testExistsByEmail() {
-        // Given
-        User user = new User();
-        user.setEmail("admin@example.com");
-        user.setPassword("password");
-        user.setFullName("Admin User");
-        user.setRole(Role.ADMIN);
-        userRepository.save(user);
+    void testFindByEmail() {
+        // Test finding the user by email
+        Optional<User> foundUser = userRepository.findByEmail(uniqueEmail);
+        
+        assertTrue(foundUser.isPresent());
+        assertEquals(uniqueEmail, foundUser.get().getEmail());
+        assertEquals(testUser.getId(), foundUser.get().getId());
+    }
 
-        // When & Then
-        assertThat(userRepository.existsByEmail("admin@example.com")).isTrue();
-        assertThat(userRepository.existsByEmail("nonexistent@example.com")).isFalse();
+    @Test
+    void testFindByEmailNotFound() {
+        // Test finding a non-existent email
+        Optional<User> foundUser = userRepository.findByEmail("nonexistent@example.com");
+        
+        assertFalse(foundUser.isPresent());
+    }
+
+    @Test
+    void testExistsByEmail() {
+        // Test checking if a user exists by email
+        boolean exists = userRepository.existsByEmail(uniqueEmail);
+        
+        assertTrue(exists);
+    }
+
+    @Test
+    void testExistsByEmailNotFound() {
+        // Test checking if a non-existent user exists
+        boolean exists = userRepository.existsByEmail("nonexistent@example.com");
+        
+        assertFalse(exists);
     }
 }
