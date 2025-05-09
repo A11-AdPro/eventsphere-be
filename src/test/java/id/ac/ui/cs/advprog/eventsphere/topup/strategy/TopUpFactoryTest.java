@@ -1,56 +1,79 @@
 package id.ac.ui.cs.advprog.eventsphere.topup.strategy;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.model.TopUp;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.CustomTopUp;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.FixedTopUp;
-
+import id.ac.ui.cs.advprog.eventsphere.topup.model.TopUp;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-
+import org.junit.jupiter.api.DisplayName;
 import static org.junit.jupiter.api.Assertions.*;
 
-class TopUpFactoryTest {
-
-    private final TopUpFactory factory = new TopUpFactory();
-
+public class TopUpFactoryTest {
+    
+    private TopUpFactory topUpFactory;
+    
+    @BeforeEach
+    public void setUp() {
+        topUpFactory = new TopUpFactory();
+    }
+    
     @Test
-    void testCreateCustomTopUp() {
-        TopUp topUp = factory.createTopUp("CUSTOM", 50000);
+    @DisplayName("Should create CustomTopUp")
+    public void testCreateCustomTopUp() {
+        TopUp topUp = topUpFactory.createTopUp("CUSTOM", 50000);
+        
         assertTrue(topUp instanceof CustomTopUp);
-        assertEquals("CUSTOM", topUp.getType());
         assertEquals(50000, topUp.getAmount());
+        assertEquals("CUSTOM", topUp.getType());
     }
-
+    
     @Test
-    void testCreateFixedTopUp() {
-        TopUp topUp = factory.createTopUp("FIXED", 100000);
+    @DisplayName("Should create FixedTopUp")
+    public void testCreateFixedTopUp() {
+        TopUp topUp = topUpFactory.createTopUp("FIXED", 50000);
+        
         assertTrue(topUp instanceof FixedTopUp);
+        assertEquals(50000, topUp.getAmount());
         assertEquals("FIXED", topUp.getType());
-        assertEquals(100000, topUp.getAmount());
     }
-
+    
     @Test
-    void testCreateInvalidTopUpThrowsException() {
-        assertThrows(IllegalArgumentException.class, () -> factory.createTopUp("INVALID", 100000));
+    @DisplayName("Should throw exception for invalid topUp type")
+    public void testCreateInvalidTopUpType() {
+        Exception exception = assertThrows(IllegalArgumentException.class, () -> {
+            topUpFactory.createTopUp("INVALID", 50000);
+        });
+        
+        assertEquals("Invalid top-up type", exception.getMessage());
     }
-
+    
     @Test
-    void testCreateSmallTopUp() {
-        TopUp topUp = factory.createSmallTopUp();
+    @DisplayName("Should create small FixedTopUp")
+    public void testCreateSmallTopUp() {
+        TopUp topUp = topUpFactory.createSmallTopUp();
+        
         assertTrue(topUp instanceof FixedTopUp);
         assertEquals(TopUpFactory.SMALL_FIXED, topUp.getAmount());
+        assertEquals("FIXED", topUp.getType());
     }
-
+    
     @Test
-    void testCreateMediumTopUp() {
-        TopUp topUp = factory.createMediumTopUp();
+    @DisplayName("Should create medium FixedTopUp")
+    public void testCreateMediumTopUp() {
+        TopUp topUp = topUpFactory.createMediumTopUp();
+        
         assertTrue(topUp instanceof FixedTopUp);
         assertEquals(TopUpFactory.MEDIUM_FIXED, topUp.getAmount());
+        assertEquals("FIXED", topUp.getType());
     }
-
+    
     @Test
-    void testCreateLargeTopUp() {
-        TopUp topUp = factory.createLargeTopUp();
+    @DisplayName("Should create large FixedTopUp")
+    public void testCreateLargeTopUp() {
+        TopUp topUp = topUpFactory.createLargeTopUp();
+        
         assertTrue(topUp instanceof FixedTopUp);
         assertEquals(TopUpFactory.LARGE_FIXED, topUp.getAmount());
+        assertEquals("FIXED", topUp.getType());
     }
 }
