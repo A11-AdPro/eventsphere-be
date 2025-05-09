@@ -17,4 +17,17 @@ public class UserService {
     public List<String> getOrganizerEmails(UUID eventId) {
         return List.of("organizer@example.com");
     }
+
+    public List<UUID> getAdminIds() {
+        return List.of(
+                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
+                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12")
+        );
+    }
+
+    public List<UUID> getOrganizerIds(UUID eventId) {
+        return List.of(
+                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13")
+        );
+    }
 }
