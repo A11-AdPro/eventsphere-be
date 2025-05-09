@@ -1,12 +1,12 @@
 package id.ac.ui.cs.advprog.eventsphere.ticket.service;
 
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketRequest;
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.dto.TicketResponse;
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.exception.TicketNotFoundException;
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.model.Ticket;
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.model.TicketCategory;
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.repository.TicketRepository;
-import id.ac.ui.cs.advprog.eventsphere.ticket.controller.service.TicketServiceImpl;
+import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketRequest;
+import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
+import id.ac.ui.cs.advprog.eventsphere.ticket.exception.TicketNotFoundException;
+import id.ac.ui.cs.advprog.eventsphere.ticket.model.Ticket;
+import id.ac.ui.cs.advprog.eventsphere.ticket.model.TicketCategory;
+import id.ac.ui.cs.advprog.eventsphere.ticket.repository.TicketRepository;
+import id.ac.ui.cs.advprog.eventsphere.ticket.service.TicketServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 
@@ -109,6 +109,9 @@ class TicketServiceImplTest {
         assertThrows(TicketNotFoundException.class, () -> ticketService.deleteTicket(ticketId));
     }
 }
+
+
+
 
 
 
