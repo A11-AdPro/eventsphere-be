@@ -19,3 +19,4 @@ public class CreateReportCommentRequestTest {
         assertEquals("ADMIN", dto.getResponderRole());
         assertEquals("Test message", dto.getMessage());
     }
+}
