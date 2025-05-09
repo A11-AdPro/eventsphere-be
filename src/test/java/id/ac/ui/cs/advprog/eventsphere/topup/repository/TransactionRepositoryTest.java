@@ -1,133 +1,182 @@
 package id.ac.ui.cs.advprog.eventsphere.topup.repository;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.entity.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.Transaction;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
-import org.springframework.boot.jdbc.EmbeddedDatabaseConnection;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
-import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.UUID;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertNotNull;
+import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(connection = EmbeddedDatabaseConnection.H2)
-public class TransactionRepositoryTest {
-
-    @Autowired
-    private TestEntityManager entityManager;
+@ActiveProfiles("test")
+class TransactionRepositoryTest {
 
     @Autowired
     private TransactionRepository transactionRepository;
+
+    @Autowired
+    private UserRepository userRepository;
 
     private User testUser;
 
     @BeforeEach
     void setUp() {
-        // Create a test user
+        // Clear any existing data
+        transactionRepository.deleteAll();
+        userRepository.deleteAll();
+
+        // Create a new test user with unique email
         testUser = User.builder()
-                .username("testuser")
-                .email("test@example.com")
-                .balance(100000)
+                .email("test-" + UUID.randomUUID() + "@example.com")
+                .password("password")
+                .role(Role.ATTENDEE)
+                .fullName("Test User")
+                .balance(1000)
                 .build();
-        
-        // Save user to get ID
-        testUser = entityManager.persist(testUser);
-        
-        // Create test transactions
-        Transaction transaction1 = Transaction.builder()
-                .user(testUser)
-                .amount(50000)
-                .timestamp(LocalDateTime.now())
-                .type(Transaction.TransactionType.TOP_UP)
-                .status(Transaction.TransactionStatus.SUCCESS)
-                .description("Test Top Up")
-                .build();
-        
-        Transaction transaction2 = Transaction.builder()
-                .user(testUser)
-                .amount(25000)
-                .timestamp(LocalDateTime.now())
-                .type(Transaction.TransactionType.TICKET_PURCHASE)
-                .status(Transaction.TransactionStatus.SUCCESS)
-                .description("Test Ticket Purchase")
-                .eventId("event-123")
-                .build();
-        
-        Transaction transaction3 = Transaction.builder()
-                .user(testUser)
-                .amount(15000)
-                .timestamp(LocalDateTime.now())
-                .type(Transaction.TransactionType.TOP_UP)
-                .status(Transaction.TransactionStatus.PENDING)
-                .description("Pending Top Up")
-                .build();
-        
-        // Persist test transactions
-        entityManager.persist(transaction1);
-        entityManager.persist(transaction2);
-        entityManager.persist(transaction3);
-        
-        // Flush to ensure data is saved before tests run
-        entityManager.flush();
+
+        testUser = userRepository.save(testUser);
     }
 
     @Test
     void testFindByUser() {
-        List<Transaction> transactions = transactionRepository.findByUser(testUser);
+        Transaction transaction = Transaction.builder()
+                .user(testUser)
+                .amount(100)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Test transaction")
+                .build();
+
+        transactionRepository.save(transaction);
+
+        List<Transaction> found = transactionRepository.findByUser(testUser);
         
-        assertNotNull(transactions);
-        assertEquals(3, transactions.size());
+        assertFalse(found.isEmpty());
+        assertEquals(1, found.size());
+        assertEquals(testUser.getId(), found.get(0).getUser().getId());
     }
 
     @Test
     void testFindByUserAndType() {
-        List<Transaction> topUps = transactionRepository.findByUserAndType(
+        Transaction topUpTransaction = Transaction.builder()
+                .user(testUser)
+                .amount(100)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Top-up transaction")
+                .build();
+
+        Transaction purchaseTransaction = Transaction.builder()
+                .user(testUser)
+                .amount(50)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TICKET_PURCHASE)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Purchase transaction")
+                .build();
+
+        transactionRepository.save(topUpTransaction);
+        transactionRepository.save(purchaseTransaction);
+
+        List<Transaction> topUpTransactions = transactionRepository.findByUserAndType(
                 testUser, Transaction.TransactionType.TOP_UP);
         
-        assertNotNull(topUps);
-        assertEquals(2, topUps.size());
-        
-        List<Transaction> purchases = transactionRepository.findByUserAndType(
-                testUser, Transaction.TransactionType.TICKET_PURCHASE);
-        
-        assertNotNull(purchases);
-        assertEquals(1, purchases.size());
+        assertFalse(topUpTransactions.isEmpty());
+        assertEquals(1, topUpTransactions.size());
+        assertEquals(Transaction.TransactionType.TOP_UP, topUpTransactions.get(0).getType());
     }
 
     @Test
     void testFindByUserAndStatus() {
+        Transaction successTransaction = Transaction.builder()
+                .user(testUser)
+                .amount(100)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Success transaction")
+                .build();
+
+        Transaction failedTransaction = Transaction.builder()
+                .user(testUser)
+                .amount(50)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.FAILED)
+                .description("Failed transaction")
+                .build();
+
+        transactionRepository.save(successTransaction);
+        transactionRepository.save(failedTransaction);
+
         List<Transaction> successTransactions = transactionRepository.findByUserAndStatus(
                 testUser, Transaction.TransactionStatus.SUCCESS);
         
-        assertNotNull(successTransactions);
-        assertEquals(2, successTransactions.size());
-        
-        List<Transaction> pendingTransactions = transactionRepository.findByUserAndStatus(
-                testUser, Transaction.TransactionStatus.PENDING);
-        
-        assertNotNull(pendingTransactions);
-        assertEquals(1, pendingTransactions.size());
+        assertFalse(successTransactions.isEmpty());
+        assertEquals(1, successTransactions.size());
+        assertEquals(Transaction.TransactionStatus.SUCCESS, successTransactions.get(0).getStatus());
     }
 
     @Test
     void testFindByStatus() {
+        User anotherUser = User.builder()
+                .email("another-" + UUID.randomUUID() + "@example.com")
+                .password("password")
+                .role(Role.ATTENDEE)
+                .fullName("Another User")
+                .balance(500)
+                .build();
+                
+        anotherUser = userRepository.save(anotherUser);
+
+        Transaction successTransaction1 = Transaction.builder()
+                .user(testUser)
+                .amount(100)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Success transaction 1")
+                .build();
+
+        Transaction successTransaction2 = Transaction.builder()
+                .user(anotherUser)
+                .amount(200)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Success transaction 2")
+                .build();
+
+        Transaction failedTransaction = Transaction.builder()
+                .user(testUser)
+                .amount(50)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.FAILED)
+                .description("Failed transaction")
+                .build();
+
+        transactionRepository.save(successTransaction1);
+        transactionRepository.save(successTransaction2);
+        transactionRepository.save(failedTransaction);
+
         List<Transaction> successTransactions = transactionRepository.findByStatus(
                 Transaction.TransactionStatus.SUCCESS);
         
-        assertNotNull(successTransactions);
+        assertFalse(successTransactions.isEmpty());
         assertEquals(2, successTransactions.size());
-        
-        List<Transaction> pendingTransactions = transactionRepository.findByStatus(
-                Transaction.TransactionStatus.PENDING);
-        
-        assertNotNull(pendingTransactions);
-        assertEquals(1, pendingTransactions.size());
+        assertTrue(successTransactions.stream()
+                .allMatch(t -> t.getStatus() == Transaction.TransactionStatus.SUCCESS));
     }
 }
