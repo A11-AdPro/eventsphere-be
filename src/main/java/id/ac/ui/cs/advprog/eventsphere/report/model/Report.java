@@ -1,3 +1,4 @@
+// File: src/main/java/id/ac/ui/cs/advprog/eventsphere/report/model/Report.java
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
 import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportObserver;
@@ -51,6 +52,12 @@ public class Report {
     @Transient
     private List<ReportObserver> observers = new ArrayList<>();
 
+    public Report(UUID userId, ReportCategory category, String description) {
+        this.userId = userId;
+        this.category = category;
+        this.description = description;
+    }
+
     public void updateStatus(ReportStatus newStatus) {
         ReportStatus oldStatus = this.status;
         this.status = newStatus;
@@ -70,5 +77,15 @@ public class Report {
         for (ReportObserver observer : observers) {
             observer.onResponseAdded(this, response);
         }
+    }
+
+    public void addObserver(ReportObserver observer) {
+        if (!observers.contains(observer)) {
+            observers.add(observer);
+        }
+    }
+
+    public void removeObserver(ReportObserver observer) {
+        observers.remove(observer);
     }
 }
