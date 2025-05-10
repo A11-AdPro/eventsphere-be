@@ -15,12 +15,13 @@ public class ReportObserverTest {
         // Create mock implementation of the interface
         ReportObserver observer = mock(ReportObserver.class);
 
-        // Create test objects
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test report");
+        // Create test objects - perubahan di sini dari UUID menjadi Long dan menambahkan email
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test report");
         report.setStatus(ReportStatus.PENDING);
 
         ReportResponse response = new ReportResponse();
-        response.setResponderId(UUID.randomUUID());
+        response.setResponderId(1L); // perubahan dari UUID menjadi Long
+        response.setResponderEmail("admin@example.com"); // menambahkan email
         response.setResponderRole("ADMIN");
         response.setMessage("Test response");
 

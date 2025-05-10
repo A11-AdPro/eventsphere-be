@@ -15,7 +15,6 @@ import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepositor
 import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
-import org.springframework.web.multipart.MultipartFile;
 
 import java.io.IOException;
 import java.util.ArrayList;
@@ -29,7 +28,6 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final ReportResponseRepository responseRepository;
     private final NotificationService notificationService;
-    private final FileStorageService fileStorageService;
     private final UserRepository userRepository;
 
     @Autowired
@@ -37,16 +35,14 @@ public class ReportService {
             ReportRepository reportRepository,
             ReportResponseRepository responseRepository,
             NotificationService notificationService,
-            FileStorageService fileStorageService,
             UserRepository userRepository) {
         this.reportRepository = reportRepository;
         this.responseRepository = responseRepository;
         this.notificationService = notificationService;
-        this.fileStorageService = fileStorageService;
         this.userRepository = userRepository;
     }
 
-    public ReportResponseDTO createReport(CreateReportRequest createRequest, List<MultipartFile> attachments) throws IOException {
+    public ReportResponseDTO createReport(CreateReportRequest createRequest) {
         // Get user email from repository if not provided
         String userEmail = createRequest.getUserEmail();
         if (userEmail == null || userEmail.isEmpty()) {
@@ -66,16 +62,6 @@ public class ReportService {
         // Register observer
         report.getObservers().add(notificationService);
 
-        // Process attachments if any
-        if (attachments != null && !attachments.isEmpty()) {
-            for (MultipartFile file : attachments) {
-                if (!file.isEmpty()) {
-                    String storedFileName = fileStorageService.storeFile(file);
-                    report.getAttachments().add(storedFileName);
-                }
-            }
-        }
-
         // Save the report
         Report savedReport = reportRepository.save(report);
 
@@ -85,9 +71,6 @@ public class ReportService {
         // Convert entity to response DTO
         return convertToResponseDTO(savedReport);
     }
-
-    // Rest of the service methods remain the same
-    // ...
 
     public ReportResponseDTO getReportById(UUID id) {
         Report report = findReportById(id);
@@ -149,6 +132,7 @@ public class ReportService {
         // Create the comment entity
         ReportResponse commentEntity = new ReportResponse();
         commentEntity.setResponderId(commentRequest.getResponderId());
+        commentEntity.setResponderEmail(commentRequest.getResponderEmail());
         commentEntity.setResponderRole(commentRequest.getResponderRole());
         commentEntity.setMessage(commentRequest.getMessage());
 
@@ -170,11 +154,6 @@ public class ReportService {
 
     public void deleteReport(UUID reportId) throws IOException {
         Report report = findReportById(reportId);
-
-        // Delete attachments if any
-        for (String attachmentPath : report.getAttachments()) {
-            fileStorageService.deleteFile(attachmentPath);
-        }
 
         // Delete the report (this will cascade delete responses as well)
         reportRepository.delete(report);

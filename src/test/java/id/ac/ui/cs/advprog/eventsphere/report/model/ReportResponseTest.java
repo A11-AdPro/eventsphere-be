@@ -11,13 +11,15 @@ public class ReportResponseTest {
     public void testReportResponseSettersAndGetters() {
         ReportResponse response = new ReportResponse();
         UUID id = UUID.randomUUID();
-        UUID responderId = UUID.randomUUID();
+        Long responderId = 1L;
+        String responderEmail = "admin@example.com";
         Report report = new Report();
         LocalDateTime now = LocalDateTime.now();
 
         response.setId(id);
         response.setReport(report);
         response.setResponderId(responderId);
+        response.setResponderEmail(responderEmail);
         response.setResponderRole("ADMIN");
         response.setMessage("Test response message");
         response.setCreatedAt(now);
@@ -25,6 +27,7 @@ public class ReportResponseTest {
         assertEquals(id, response.getId());
         assertEquals(report, response.getReport());
         assertEquals(responderId, response.getResponderId());
+        assertEquals(responderEmail, response.getResponderEmail());
         assertEquals("ADMIN", response.getResponderRole());
         assertEquals("Test response message", response.getMessage());
         assertEquals(now, response.getCreatedAt());
@@ -41,7 +44,8 @@ public class ReportResponseTest {
         }
 
         // Set valid values
-        response.setResponderId(UUID.randomUUID());
+        response.setResponderId(1L);
+        response.setResponderEmail("admin@example.com");
         response.setResponderRole("ADMIN");
 
         // Test message validation
@@ -57,14 +61,16 @@ public class ReportResponseTest {
 
     @Test
     public void testReportResponseConstructor() {
-        UUID responderId = UUID.randomUUID();
+        Long responderId = 1L;
+        String responderEmail = "admin@example.com";
         String responderRole = "ADMIN";
         String message = "Test message";
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test report");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test report");
 
-        ReportResponse response = new ReportResponse(responderId, responderRole, message, report);
+        ReportResponse response = new ReportResponse(responderId, responderEmail, responderRole, message, report);
 
         assertEquals(responderId, response.getResponderId());
+        assertEquals(responderEmail, response.getResponderEmail());
         assertEquals(responderRole, response.getResponderRole());
         assertEquals(message, response.getMessage());
         assertEquals(report, response.getReport());
@@ -77,5 +83,4 @@ public class ReportResponseTest {
         response.setMessage(null);
         assertNull(response.getMessage());
     }
-
 }

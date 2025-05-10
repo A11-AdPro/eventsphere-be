@@ -14,7 +14,8 @@ public class ReportResponseDTOTest {
     @Test
     public void testReportResponseDTOSettersAndGetters() {
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
+        String userEmail = "user@example.com";
         LocalDateTime now = LocalDateTime.now();
         List<String> attachments = new ArrayList<>();
         attachments.add("file1.jpg");
@@ -28,6 +29,7 @@ public class ReportResponseDTOTest {
         ReportResponseDTO dto = new ReportResponseDTO();
         dto.setId(id);
         dto.setUserId(userId);
+        dto.setUserEmail(userEmail);
         dto.setCategory(ReportCategory.PAYMENT);
         dto.setDescription("Test description");
         dto.setStatus(ReportStatus.PENDING);
@@ -38,6 +40,7 @@ public class ReportResponseDTOTest {
 
         assertEquals(id, dto.getId());
         assertEquals(userId, dto.getUserId());
+        assertEquals(userEmail, dto.getUserEmail());
         assertEquals(ReportCategory.PAYMENT, dto.getCategory());
         assertEquals("Test description", dto.getDescription());
         assertEquals(ReportStatus.PENDING, dto.getStatus());

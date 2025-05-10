@@ -12,10 +12,14 @@ public class ReportSummaryDTOTest {
     @Test
     public void testReportSummaryDTOSettersAndGetters() {
         UUID id = UUID.randomUUID();
+        Long userId = 1L;
+        String userEmail = "user@example.com";
         LocalDateTime now = LocalDateTime.now();
 
         ReportSummaryDTO dto = new ReportSummaryDTO();
         dto.setId(id);
+        dto.setUserId(userId);
+        dto.setUserEmail(userEmail);
         dto.setCategory(ReportCategory.PAYMENT);
         dto.setStatus(ReportStatus.PENDING);
         dto.setShortDescription("Short description...");
@@ -23,6 +27,8 @@ public class ReportSummaryDTOTest {
         dto.setCommentCount(5);
 
         assertEquals(id, dto.getId());
+        assertEquals(userId, dto.getUserId());
+        assertEquals(userEmail, dto.getUserEmail());
         assertEquals(ReportCategory.PAYMENT, dto.getCategory());
         assertEquals(ReportStatus.PENDING, dto.getStatus());
         assertEquals("Short description...", dto.getShortDescription());

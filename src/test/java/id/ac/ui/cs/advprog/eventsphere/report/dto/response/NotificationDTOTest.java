@@ -10,13 +10,15 @@ public class NotificationDTOTest {
     @Test
     public void testNotificationDTOSettersAndGetters() {
         UUID id = UUID.randomUUID();
-        UUID recipientId = UUID.randomUUID();
+        Long recipientId = 1L;
+        String recipientEmail = "user@example.com";
         UUID relatedEntityId = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
 
         NotificationDTO dto = new NotificationDTO();
         dto.setId(id);
         dto.setRecipientId(recipientId);
+        dto.setRecipientEmail(recipientEmail);
         dto.setSenderRole("ADMIN");
         dto.setTitle("Test Title");
         dto.setMessage("Test Message");
@@ -27,6 +29,7 @@ public class NotificationDTOTest {
 
         assertEquals(id, dto.getId());
         assertEquals(recipientId, dto.getRecipientId());
+        assertEquals(recipientEmail, dto.getRecipientEmail());
         assertEquals("ADMIN", dto.getSenderRole());
         assertEquals("Test Title", dto.getTitle());
         assertEquals("Test Message", dto.getMessage());

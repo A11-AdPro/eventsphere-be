@@ -12,15 +12,16 @@ public class ReportTest {
 
     @Test
     public void testCreateReport() {
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
+        String userEmail = "user@example.com";
         ReportCategory category = ReportCategory.PAYMENT;
         String description = "Payment failed but money was deducted";
 
-        Report report = new Report(userId, category, description);
+        Report report = new Report(userId, userEmail, category, description);
 
         // ID akan null sampai disimpan ke database
-        // assertNotNull(report.getId());
         assertEquals(userId, report.getUserId());
+        assertEquals(userEmail, report.getUserEmail());
         assertEquals(category, report.getCategory());
         assertEquals(description, report.getDescription());
         assertEquals(ReportStatus.PENDING, report.getStatus());
@@ -34,11 +35,13 @@ public class ReportTest {
     public void testReportSettersAndGetters() {
         Report report = new Report();
         UUID id = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
+        String userEmail = "user@example.com";
         LocalDateTime now = LocalDateTime.now();
 
         report.setId(id);
         report.setUserId(userId);
+        report.setUserEmail(userEmail);
         report.setCategory(ReportCategory.EVENT);
         report.setDescription("Test description");
         report.setStatus(ReportStatus.ON_PROGRESS);
@@ -48,6 +51,7 @@ public class ReportTest {
 
         assertEquals(id, report.getId());
         assertEquals(userId, report.getUserId());
+        assertEquals(userEmail, report.getUserEmail());
         assertEquals(ReportCategory.EVENT, report.getCategory());
         assertEquals("Test description", report.getDescription());
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
@@ -59,7 +63,7 @@ public class ReportTest {
     @Test
     public void testUpdateStatus() {
         // Create a report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test description");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
         report.setStatus(ReportStatus.PENDING);
 
         // Create and register a mock observer
@@ -80,7 +84,7 @@ public class ReportTest {
     @Test
     public void testAddAttachment() {
         // Create a report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test description");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
 
         // Add an attachment
         report.getAttachments().add("file1.jpg");
@@ -93,11 +97,12 @@ public class ReportTest {
     @Test
     public void testAddResponse() {
         // Create a report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test description");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
 
         // Create a response
         ReportResponse response = new ReportResponse();
-        response.setResponderId(UUID.randomUUID());
+        response.setResponderId(2L);
+        response.setResponderEmail("admin@example.com");
         response.setResponderRole("ADMIN");
         response.setMessage("Admin response");
 
@@ -120,7 +125,7 @@ public class ReportTest {
     @Test
     public void testRemoveObserver() {
         // Create a report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test description");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
 
         // Create and register a mock observer
         ReportObserver mockObserver = mock(ReportObserver.class);
@@ -139,7 +144,7 @@ public class ReportTest {
     @Test
     public void testAddObserver() {
         // Create a report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Test description");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
 
         // Create a mock observer
         ReportObserver mockObserver = mock(ReportObserver.class);
@@ -156,5 +161,4 @@ public class ReportTest {
         // Ensure it was not added twice
         assertEquals(1, report.getObservers().size());
     }
-
 }

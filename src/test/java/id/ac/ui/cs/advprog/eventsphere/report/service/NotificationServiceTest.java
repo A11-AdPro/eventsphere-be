@@ -33,8 +33,8 @@ public class NotificationServiceTest {
     @Test
     public void testOnStatusChanged() {
         // Create a test report
-        UUID userId = UUID.randomUUID();
-        Report report = new Report(userId, ReportCategory.PAYMENT, "Payment issue");
+        Long userId = 1L;
+        Report report = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
         report.setId(UUID.randomUUID());
 
         // Setup ReportStatus display names
@@ -50,6 +50,7 @@ public class NotificationServiceTest {
 
         Notification notification = notificationCaptor.getValue();
         assertEquals(userId, notification.getRecipientId());
+        assertEquals("user@example.com", notification.getRecipientEmail());
         assertEquals("SYSTEM", notification.getSenderRole());
         assertTrue(notification.getTitle().contains("Report Status Updated"));
         assertTrue(notification.getMessage().contains(oldStatus.getDisplayName()));
@@ -62,12 +63,12 @@ public class NotificationServiceTest {
     @Test
     public void testOnResponseAdded() {
         // Create a test report
-        UUID userId = UUID.randomUUID();
-        Report report = new Report(userId, ReportCategory.TICKET, "Ticket issue");
+        Long userId = 1L;
+        Report report = new Report(userId, "user@example.com", ReportCategory.TICKET, "Ticket issue");
         report.setId(UUID.randomUUID());
 
         // Create a test response
-        ReportResponse response = new ReportResponse(UUID.randomUUID(), "ADMIN", "Admin response", report);
+        ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
         // Call the method being tested
         notificationService.onResponseAdded(report, response);
@@ -78,6 +79,7 @@ public class NotificationServiceTest {
 
         Notification notification = notificationCaptor.getValue();
         assertEquals(userId, notification.getRecipientId());
+        assertEquals("user@example.com", notification.getRecipientEmail());
         assertEquals("ADMIN", notification.getSenderRole());
         assertTrue(notification.getTitle().contains("New Response"));
         assertTrue(notification.getMessage().contains("Admin response"));
@@ -89,15 +91,14 @@ public class NotificationServiceTest {
     @Test
     public void testNotifyNewReport() {
         // Create a test report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
         report.setId(UUID.randomUUID());
 
         // Mock userService
-        List<UUID> adminIds = Arrays.asList(
-                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a11"),
-                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a12")
-        );
+        List<Long> adminIds = Arrays.asList(1L, 2L);
         when(userService.getAdminIds()).thenReturn(adminIds);
+        when(userService.getUserEmail(1L)).thenReturn("admin1@example.com");
+        when(userService.getUserEmail(2L)).thenReturn("admin2@example.com");
 
         // Call the method being tested
         notificationService.notifyNewReport(report);
@@ -109,17 +110,16 @@ public class NotificationServiceTest {
     @Test
     public void testNotifyOrganizerOfReport() {
         // Create a test report
-        Report report = new Report(UUID.randomUUID(), ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
         report.setId(UUID.randomUUID());
 
         // Create event ID
         UUID eventId = UUID.randomUUID();
 
         // Mock userService
-        List<UUID> organizerIds = Arrays.asList(
-                UUID.fromString("a0eebc99-9c0b-4ef8-bb6d-6bb9bd380a13")
-        );
+        List<Long> organizerIds = Arrays.asList(3L);
         when(userService.getOrganizerIds(eventId)).thenReturn(organizerIds);
+        when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Call the method being tested
         notificationService.notifyOrganizerOfReport(report, eventId);
@@ -131,9 +131,9 @@ public class NotificationServiceTest {
     @Test
     public void testGetUserNotifications() {
         // Create test data
-        UUID userId = UUID.randomUUID();
-        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        Notification notification2 = new Notification(userId, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        Long userId = 1L;
+        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
 
         List<Notification> notifications = Arrays.asList(notification1, notification2);
 
@@ -152,10 +152,33 @@ public class NotificationServiceTest {
     }
 
     @Test
+    public void testGetUserNotificationsByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Notification notification2 = new Notification(1L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+
+        List<Notification> notifications = Arrays.asList(notification1, notification2);
+
+        // Mock repository behavior
+        when(notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email)).thenReturn(notifications);
+
+        // Call service method
+        List<Notification> result = notificationService.getUserNotificationsByEmail(email);
+
+        // Verify results
+        assertEquals(2, result.size());
+        assertEquals(notifications, result);
+
+        // Verify repository interaction
+        verify(notificationRepository).findByRecipientEmailOrderByCreatedAtDesc(email);
+    }
+
+    @Test
     public void testGetUnreadUserNotifications() {
         // Create test data
-        UUID userId = UUID.randomUUID();
-        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Long userId = 1L;
+        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
         List<Notification> notifications = Arrays.asList(notification1);
@@ -175,9 +198,32 @@ public class NotificationServiceTest {
     }
 
     @Test
+    public void testGetUnreadUserNotificationsByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        notification1.setRead(false);
+
+        List<Notification> notifications = Arrays.asList(notification1);
+
+        // Mock repository behavior
+        when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(notifications);
+
+        // Call service method
+        List<Notification> result = notificationService.getUnreadUserNotificationsByEmail(email);
+
+        // Verify results
+        assertEquals(1, result.size());
+        assertEquals(notifications, result);
+
+        // Verify repository interaction
+        verify(notificationRepository).findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
+    }
+
+    @Test
     public void testCountUnreadNotifications() {
         // Create test data
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
         long expectedCount = 3;
 
         // Mock repository behavior
@@ -194,12 +240,31 @@ public class NotificationServiceTest {
     }
 
     @Test
+    public void testCountUnreadNotificationsByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        long expectedCount = 3;
+
+        // Mock repository behavior
+        when(notificationRepository.countByRecipientEmailAndRead(email, false)).thenReturn(expectedCount);
+
+        // Call service method
+        long result = notificationService.countUnreadNotificationsByEmail(email);
+
+        // Verify result
+        assertEquals(expectedCount, result);
+
+        // Verify repository interaction
+        verify(notificationRepository).countByRecipientEmailAndRead(email, false);
+    }
+
+    @Test
     public void testMarkNotificationAsRead() {
         UUID notificationId = UUID.randomUUID();
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
 
         // Create a test notification
-        Notification notification = new Notification(userId, "ADMIN", "Title", "Message", "TYPE_1", UUID.randomUUID());
+        Notification notification = new Notification(userId, "user@example.com", "ADMIN", "Title", "Message", "TYPE_1", UUID.randomUUID());
         notification.setId(notificationId);
         notification.setRead(false);  // Set as unread initially
 
@@ -221,12 +286,12 @@ public class NotificationServiceTest {
 
     @Test
     public void testMarkAllNotificationsAsRead() {
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
 
         // Create some unread notifications
-        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
-        Notification notification2 = new Notification(userId, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
         notification2.setRead(false);
 
         List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
@@ -245,4 +310,51 @@ public class NotificationServiceTest {
         assertTrue(notification2.isRead());
     }
 
+    @Test
+    public void testMarkAllNotificationsAsReadByEmail() {
+        String email = "user@example.com";
+
+        // Create some unread notifications
+        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        notification1.setRead(false);
+        Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        notification2.setRead(false);
+
+        List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
+
+        // Mock the repository behavior
+        when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(unreadNotifications);
+
+        // Call the service method to mark all notifications as read
+        notificationService.markAllNotificationsAsReadByEmail(email);
+
+        // Verify that save was called for each notification
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+
+        // Verify that the notifications are now marked as read
+        assertTrue(notification1.isRead());
+        assertTrue(notification2.isRead());
+    }
+
+    @Test
+    public void testMarkNotificationAsRead_NotificationNotFound() {
+        // Create a random UUID for a non-existent notification
+        UUID nonExistentId = UUID.randomUUID();
+
+        // Mock the repository to return empty optional (notification not found)
+        when(notificationRepository.findById(nonExistentId)).thenReturn(java.util.Optional.empty());
+
+        // Call the service method and verify that RuntimeException is thrown with correct message
+        RuntimeException exception = assertThrows(
+                RuntimeException.class,
+                () -> notificationService.markNotificationAsRead(nonExistentId)
+        );
+
+        // Verify exception message
+        assertEquals("Notification not found", exception.getMessage());
+
+        // Verify repository was called but save was not
+        verify(notificationRepository).findById(nonExistentId);
+        verify(notificationRepository, never()).save(any(Notification.class));
+    }
 }

@@ -1,4 +1,3 @@
-
 package id.ac.ui.cs.advprog.eventsphere.report.repository;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
@@ -10,6 +9,7 @@ import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabas
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.jdbc.Sql;
 
 import java.util.List;
 import java.util.UUID;
@@ -29,12 +29,12 @@ public class ReportRepositoryTest {
     @Test
     public void testFindByUserId() {
         // Create test data
-        UUID userId1 = UUID.randomUUID();
-        UUID userId2 = UUID.randomUUID();
+        Long userId1 = 1L;
+        Long userId2 = 2L;
 
-        Report report1 = new Report(userId1, ReportCategory.PAYMENT, "User 1 Report 1");
-        Report report2 = new Report(userId1, ReportCategory.TICKET, "User 1 Report 2");
-        Report report3 = new Report(userId2, ReportCategory.EVENT, "User 2 Report");
+        Report report1 = new Report(userId1, "user1@example.com", ReportCategory.PAYMENT, "User 1 Report 1");
+        Report report2 = new Report(userId1, "user1@example.com", ReportCategory.TICKET, "User 1 Report 2");
+        Report report3 = new Report(userId2, "user2@example.com", ReportCategory.EVENT, "User 2 Report");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
@@ -51,15 +51,39 @@ public class ReportRepositoryTest {
     }
 
     @Test
+    public void testFindByUserEmail() {
+        // Create test data
+        String email1 = "user1@example.com";
+        String email2 = "user2@example.com";
+
+        Report report1 = new Report(1L, email1, ReportCategory.PAYMENT, "User 1 Report 1");
+        Report report2 = new Report(1L, email1, ReportCategory.TICKET, "User 1 Report 2");
+        Report report3 = new Report(2L, email2, ReportCategory.EVENT, "User 2 Report");
+
+        entityManager.persist(report1);
+        entityManager.persist(report2);
+        entityManager.persist(report3);
+        entityManager.flush();
+
+        // Test repository method
+        List<Report> foundReports = reportRepository.findByUserEmail(email1);
+
+        // Verify results
+        assertEquals(2, foundReports.size());
+        assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.PAYMENT));
+        assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.TICKET));
+    }
+
+    @Test
     public void testFindByStatus() {
         // Create test data
-        Report report1 = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Pending Report");
+        Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Pending Report");
         report1.setStatus(ReportStatus.PENDING);
 
-        Report report2 = new Report(UUID.randomUUID(), ReportCategory.TICKET, "In Progress Report");
+        Report report2 = new Report(2L, "user2@example.com", ReportCategory.TICKET, "In Progress Report");
         report2.setStatus(ReportStatus.ON_PROGRESS);
 
-        Report report3 = new Report(UUID.randomUUID(), ReportCategory.EVENT, "Resolved Report");
+        Report report3 = new Report(3L, "user3@example.com", ReportCategory.EVENT, "Resolved Report");
         report3.setStatus(ReportStatus.RESOLVED);
 
         entityManager.persist(report1);
@@ -85,9 +109,9 @@ public class ReportRepositoryTest {
     @Test
     public void testFindByCategory() {
         // Create test data
-        Report report1 = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Payment Report 1");
-        Report report2 = new Report(UUID.randomUUID(), ReportCategory.PAYMENT, "Payment Report 2");
-        Report report3 = new Report(UUID.randomUUID(), ReportCategory.TICKET, "Ticket Report");
+        Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Payment Report 1");
+        Report report2 = new Report(2L, "user2@example.com", ReportCategory.PAYMENT, "Payment Report 2");
+        Report report3 = new Report(3L, "user3@example.com", ReportCategory.TICKET, "Ticket Report");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
@@ -108,15 +132,15 @@ public class ReportRepositoryTest {
     @Test
     public void testFindByUserIdAndStatus() {
         // Create test data
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
 
-        Report report1 = new Report(userId, ReportCategory.PAYMENT, "Pending Report");
+        Report report1 = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Pending Report");
         report1.setStatus(ReportStatus.PENDING);
 
-        Report report2 = new Report(userId, ReportCategory.TICKET, "Resolved Report");
+        Report report2 = new Report(userId, "user@example.com", ReportCategory.TICKET, "Resolved Report");
         report2.setStatus(ReportStatus.RESOLVED);
 
-        Report report3 = new Report(UUID.randomUUID(), ReportCategory.EVENT, "Other User Report");
+        Report report3 = new Report(2L, "other@example.com", ReportCategory.EVENT, "Other User Report");
         report3.setStatus(ReportStatus.PENDING);
 
         entityManager.persist(report1);
@@ -127,6 +151,36 @@ public class ReportRepositoryTest {
         // Test repository method
         List<Report> userPendingReports = reportRepository.findByUserIdAndStatus(userId, ReportStatus.PENDING);
         List<Report> userResolvedReports = reportRepository.findByUserIdAndStatus(userId, ReportStatus.RESOLVED);
+
+        // Verify results
+        assertEquals(1, userPendingReports.size());
+        assertEquals(1, userResolvedReports.size());
+        assertEquals(ReportCategory.PAYMENT, userPendingReports.get(0).getCategory());
+        assertEquals(ReportCategory.TICKET, userResolvedReports.get(0).getCategory());
+    }
+
+    @Test
+    public void testFindByUserEmailAndStatus() {
+        // Create test data
+        String email = "user@example.com";
+
+        Report report1 = new Report(1L, email, ReportCategory.PAYMENT, "Pending Report");
+        report1.setStatus(ReportStatus.PENDING);
+
+        Report report2 = new Report(1L, email, ReportCategory.TICKET, "Resolved Report");
+        report2.setStatus(ReportStatus.RESOLVED);
+
+        Report report3 = new Report(2L, "other@example.com", ReportCategory.EVENT, "Other User Report");
+        report3.setStatus(ReportStatus.PENDING);
+
+        entityManager.persist(report1);
+        entityManager.persist(report2);
+        entityManager.persist(report3);
+        entityManager.flush();
+
+        // Test repository method
+        List<Report> userPendingReports = reportRepository.findByUserEmailAndStatus(email, ReportStatus.PENDING);
+        List<Report> userResolvedReports = reportRepository.findByUserEmailAndStatus(email, ReportStatus.RESOLVED);
 
         // Verify results
         assertEquals(1, userPendingReports.size());

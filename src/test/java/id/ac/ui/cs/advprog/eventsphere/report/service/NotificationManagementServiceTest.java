@@ -32,9 +32,9 @@ public class NotificationManagementServiceTest {
     @Test
     public void testGetUserNotifications() {
         // Create test data
-        UUID userId = UUID.randomUUID();
-        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        Notification notification2 = new Notification(userId, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        Long userId = 1L;
+        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
 
         List<Notification> notificationList = Arrays.asList(notification1, notification2);
 
@@ -54,13 +54,37 @@ public class NotificationManagementServiceTest {
     }
 
     @Test
+    public void testGetUserNotificationsByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+
+        List<Notification> notificationList = Arrays.asList(notification1, notification2);
+
+        // Mock repository method
+        when(notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email)).thenReturn(notificationList);
+
+        // Call service method
+        List<NotificationDTO> result = notificationService.getUserNotificationsByEmail(email);
+
+        // Verify results
+        assertEquals(2, result.size());
+        assertEquals("Title 1", result.get(0).getTitle());
+        assertEquals("Title 2", result.get(1).getTitle());
+
+        // Verify repository interaction
+        verify(notificationRepository).findByRecipientEmailOrderByCreatedAtDesc(email);
+    }
+
+    @Test
     public void testGetUnreadUserNotifications() {
         // Create test data
-        UUID userId = UUID.randomUUID();
-        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Long userId = 1L;
+        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
-        Notification notification2 = new Notification(userId, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
         notification2.setRead(false);
 
         List<Notification> notificationList = Arrays.asList(notification1, notification2);
@@ -81,9 +105,36 @@ public class NotificationManagementServiceTest {
     }
 
     @Test
+    public void testGetUnreadUserNotificationsByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        notification1.setRead(false);
+
+        Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        notification2.setRead(false);
+
+        List<Notification> notificationList = Arrays.asList(notification1, notification2);
+
+        // Mock repository method
+        when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(notificationList);
+
+        // Call service method
+        List<NotificationDTO> result = notificationService.getUnreadUserNotificationsByEmail(email);
+
+        // Verify results
+        assertEquals(2, result.size());
+        assertFalse(result.get(0).isRead());
+        assertFalse(result.get(1).isRead());
+
+        // Verify repository interaction
+        verify(notificationRepository).findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
+    }
+
+    @Test
     public void testCountUnreadNotifications() {
         // Create test data
-        UUID userId = UUID.randomUUID();
+        Long userId = 1L;
         long expectedCount = 5;
 
         // Mock repository method
@@ -100,11 +151,30 @@ public class NotificationManagementServiceTest {
     }
 
     @Test
+    public void testCountUnreadNotificationsByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        long expectedCount = 5;
+
+        // Mock repository method
+        when(notificationRepository.countByRecipientEmailAndRead(email, false)).thenReturn(expectedCount);
+
+        // Call service method
+        long result = notificationService.countUnreadNotificationsByEmail(email);
+
+        // Verify results
+        assertEquals(expectedCount, result);
+
+        // Verify repository interaction
+        verify(notificationRepository).countByRecipientEmailAndRead(email, false);
+    }
+
+    @Test
     public void testMarkNotificationAsRead() {
         // Create test data
         UUID notificationId = UUID.randomUUID();
         Notification notification = new Notification(
-                UUID.randomUUID(), "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID());
+                1L, "user@example.com", "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID());
         notification.setId(notificationId);
         notification.setRead(false);
 
@@ -144,11 +214,11 @@ public class NotificationManagementServiceTest {
     @Test
     public void testMarkAllNotificationsAsRead() {
         // Create test data
-        UUID userId = UUID.randomUUID();
-        Notification notification1 = new Notification(userId, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        Long userId = 1L;
+        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
-        Notification notification2 = new Notification(userId, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
         notification2.setRead(false);
 
         List<Notification> notificationList = Arrays.asList(notification1, notification2);
@@ -162,6 +232,34 @@ public class NotificationManagementServiceTest {
 
         // Verify repository interactions
         verify(notificationRepository).findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+
+        // Verify notifications were marked as read
+        assertTrue(notification1.isRead());
+        assertTrue(notification2.isRead());
+    }
+
+    @Test
+    public void testMarkAllNotificationsAsReadByEmail() {
+        // Create test data
+        String email = "user@example.com";
+        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
+        notification1.setRead(false);
+
+        Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        notification2.setRead(false);
+
+        List<Notification> notificationList = Arrays.asList(notification1, notification2);
+
+        // Mock repository method
+        when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(notificationList);
+        when(notificationRepository.save(any(Notification.class))).thenAnswer(i -> i.getArguments()[0]);
+
+        // Call service method
+        notificationService.markAllNotificationsAsReadByEmail(email);
+
+        // Verify repository interactions
+        verify(notificationRepository).findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
         verify(notificationRepository, times(2)).save(any(Notification.class));
 
         // Verify notifications were marked as read

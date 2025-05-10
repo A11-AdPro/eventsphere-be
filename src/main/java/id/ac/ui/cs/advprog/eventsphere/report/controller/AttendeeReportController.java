@@ -43,8 +43,8 @@ public class AttendeeReportController {
         createRequest.setUserId(currentUser.getId());
         createRequest.setUserEmail(currentUser.getEmail());
 
-        // Call report service with null attachments
-        ReportResponseDTO createdReport = reportService.createReport(createRequest, null);
+        // Call report service - perubahan di sini, tidak lagi mengirim null sebagai parameter kedua
+        ReportResponseDTO createdReport = reportService.createReport(createRequest);
         return new ResponseEntity<>(createdReport, HttpStatus.CREATED);
     }
 
@@ -86,6 +86,7 @@ public class AttendeeReportController {
         // Set responder info from authenticated user
         commentRequest.setResponderId(currentUser.getId());
         commentRequest.setResponderRole("ATTENDEE");
+        commentRequest.setResponderEmail(currentUser.getEmail()); // Tambahkan ini
 
         ReportCommentDTO comment = reportService.addComment(reportId, commentRequest);
         return new ResponseEntity<>(comment, HttpStatus.CREATED);
