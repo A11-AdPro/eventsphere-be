@@ -4,12 +4,12 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.jdbc.Sql;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,12 +27,12 @@ public class ReportResponseRepositoryTest {
     private ReportResponseRepository responseRepository;
 
     @Test
+    @DisplayName("Mencari respons berdasarkan reportId")
     public void testFindByReportId() {
-        // Create a test report
+        // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test report");
         entityManager.persist(report);
 
-        // Create test responses
         ReportResponse response1 = new ReportResponse(1L, "admin@example.com", "ADMIN", "Admin response", report);
         ReportResponse response2 = new ReportResponse(2L, "organizer@example.com", "ORGANIZER", "Organizer response", report);
 
@@ -40,27 +40,26 @@ public class ReportResponseRepositoryTest {
         entityManager.persist(response2);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<ReportResponse> foundResponses = responseRepository.findByReportId(report.getId());
 
-        // Verify results
+        // Assert
         assertEquals(2, foundResponses.size());
         assertTrue(foundResponses.stream().anyMatch(r -> r.getResponderRole().equals("ADMIN")));
         assertTrue(foundResponses.stream().anyMatch(r -> r.getResponderRole().equals("ORGANIZER")));
     }
 
     @Test
+    @DisplayName("Mencari respons berdasarkan responderId")
     public void testFindByResponderId() {
-        // Create test reports
+        // Arrange
         Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Report 1");
         Report report2 = new Report(2L, "user2@example.com", ReportCategory.TICKET, "Report 2");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
 
-        // Create test responses
         Long responderId = 1L;
-
         ReportResponse response1 = new ReportResponse(responderId, "admin@example.com", "ADMIN", "Response to report 1", report1);
         ReportResponse response2 = new ReportResponse(responderId, "admin@example.com", "ADMIN", "Response to report 2", report2);
         ReportResponse response3 = new ReportResponse(2L, "organizer@example.com", "ORGANIZER", "Different responder", report1);
@@ -70,26 +69,25 @@ public class ReportResponseRepositoryTest {
         entityManager.persist(response3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<ReportResponse> responderResponses = responseRepository.findByResponderId(responderId);
 
-        // Verify results
+        // Assert
         assertEquals(2, responderResponses.size());
         assertTrue(responderResponses.stream().allMatch(r -> r.getResponderId().equals(responderId)));
     }
 
     @Test
+    @DisplayName("Mencari respons berdasarkan responderEmail")
     public void testFindByResponderEmail() {
-        // Create test reports
+        // Arrange
         Report report1 = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Report 1");
         Report report2 = new Report(2L, "user@example.com", ReportCategory.TICKET, "Report 2");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
 
-        // Create test responses
         String responderEmail = "admin@example.com";
-
         ReportResponse response1 = new ReportResponse(1L, responderEmail, "ADMIN", "Response to report 1", report1);
         ReportResponse response2 = new ReportResponse(1L, responderEmail, "ADMIN", "Response to report 2", report2);
         ReportResponse response3 = new ReportResponse(2L, "other@example.com", "ORGANIZER", "Different responder", report1);
@@ -99,21 +97,21 @@ public class ReportResponseRepositoryTest {
         entityManager.persist(response3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<ReportResponse> responderResponses = responseRepository.findByResponderEmail(responderEmail);
 
-        // Verify results
+        // Assert
         assertEquals(2, responderResponses.size());
         assertTrue(responderResponses.stream().allMatch(r -> r.getResponderEmail().equals(responderEmail)));
     }
 
     @Test
+    @DisplayName("Mencari respons berdasarkan responderRole")
     public void testFindByResponderRole() {
-        // Create a test report
+        // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test report");
         entityManager.persist(report);
 
-        // Create test responses
         ReportResponse adminResponse1 = new ReportResponse(1L, "admin1@example.com", "ADMIN", "Admin response 1", report);
         ReportResponse adminResponse2 = new ReportResponse(2L, "admin2@example.com", "ADMIN", "Admin response 2", report);
         ReportResponse organizerResponse = new ReportResponse(3L, "organizer@example.com", "ORGANIZER", "Organizer response", report);
@@ -123,11 +121,11 @@ public class ReportResponseRepositoryTest {
         entityManager.persist(organizerResponse);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<ReportResponse> adminResponses = responseRepository.findByResponderRole("ADMIN");
         List<ReportResponse> organizerResponses = responseRepository.findByResponderRole("ORGANIZER");
 
-        // Verify results
+        // Assert
         assertEquals(2, adminResponses.size());
         assertEquals(1, organizerResponses.size());
         assertTrue(adminResponses.stream().allMatch(r -> r.getResponderRole().equals("ADMIN")));

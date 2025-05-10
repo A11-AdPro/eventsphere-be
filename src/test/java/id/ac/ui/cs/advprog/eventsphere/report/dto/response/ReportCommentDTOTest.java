@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.report.dto.response;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
@@ -8,7 +9,9 @@ import static org.junit.jupiter.api.Assertions.*;
 public class ReportCommentDTOTest {
 
     @Test
+    @DisplayName("Memeriksa fungsi setter dan getter untuk ReportCommentDTO")
     public void testReportCommentDTOSettersAndGetters() {
+        // Arrange
         UUID id = UUID.randomUUID();
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
@@ -16,6 +19,8 @@ public class ReportCommentDTOTest {
         LocalDateTime now = LocalDateTime.now();
 
         ReportCommentDTO dto = new ReportCommentDTO();
+
+        // Act
         dto.setId(id);
         dto.setReportId(reportId);
         dto.setResponderId(responderId);
@@ -24,6 +29,7 @@ public class ReportCommentDTOTest {
         dto.setMessage("Test message");
         dto.setCreatedAt(now);
 
+        // Assert
         assertEquals(id, dto.getId());
         assertEquals(reportId, dto.getReportId());
         assertEquals(responderId, dto.getResponderId());

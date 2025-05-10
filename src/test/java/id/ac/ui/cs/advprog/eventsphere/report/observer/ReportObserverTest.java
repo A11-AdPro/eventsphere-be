@@ -5,31 +5,32 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import java.util.UUID;
 import static org.mockito.Mockito.*;
 
 public class ReportObserverTest {
 
     @Test
+    @DisplayName("Memeriksa fungsionalitas interface observer")
     public void testObserverInterface() {
-        // Create mock implementation of the interface
+        // Arrange
         ReportObserver observer = mock(ReportObserver.class);
 
-        // Create test objects - perubahan di sini dari UUID menjadi Long dan menambahkan email
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test report");
         report.setStatus(ReportStatus.PENDING);
 
         ReportResponse response = new ReportResponse();
-        response.setResponderId(1L); // perubahan dari UUID menjadi Long
-        response.setResponderEmail("admin@example.com"); // menambahkan email
+        response.setResponderId(1L);
+        response.setResponderEmail("admin@example.com");
         response.setResponderRole("ADMIN");
         response.setMessage("Test response");
 
-        // Call interface methods
+        // Act
         observer.onStatusChanged(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
         observer.onResponseAdded(report, response);
 
-        // Verify methods were called
+        // Assert
         verify(observer).onStatusChanged(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
         verify(observer).onResponseAdded(report, response);
     }

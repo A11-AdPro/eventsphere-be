@@ -2,6 +2,7 @@ package id.ac.ui.cs.advprog.eventsphere.report.repository;
 
 import id.ac.ui.cs.advprog.eventsphere.report.model.Notification;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
@@ -23,8 +24,9 @@ public class NotificationRepositoryTest {
     private NotificationRepository notificationRepository;
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan recipientId")
     public void testFindByRecipientId() {
-        // Create test data
+        // Arrange
         Long recipientId1 = 1L;
         Long recipientId2 = 2L;
 
@@ -37,16 +39,17 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Notification> foundNotifications = notificationRepository.findByRecipientId(recipientId1);
 
-        // Assert only that we found some notifications, not the exact count
+        // Assert
         assertFalse(foundNotifications.isEmpty(), "Should find at least one notification");
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan email penerima")
     public void testFindByRecipientEmail() {
-        // Create test data
+        // Arrange
         String email1 = "user1@example.com";
         String email2 = "user2@example.com";
 
@@ -59,16 +62,17 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Notification> foundNotifications = notificationRepository.findByRecipientEmail(email1);
 
-        // Assert only that we found some notifications, not the exact count
+        // Assert
         assertFalse(foundNotifications.isEmpty(), "Should find at least one notification");
     }
 
     @Test
+    @DisplayName("Mencari notifikasi yang belum dibaca berdasarkan recipientId dan mengurutkan berdasarkan tanggal dibuat")
     public void testFindByRecipientIdAndReadOrderByCreatedAtDesc() {
-        // Create test data
+        // Arrange
         Long recipientId = 1L;
 
         Notification notification1 = new Notification(recipientId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
@@ -85,17 +89,18 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Notification> unreadNotifications = notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(recipientId, false);
 
-        // Assert only basic functionality
+        // Assert
         assertFalse(unreadNotifications.isEmpty(), "Should find at least one unread notification");
         assertTrue(unreadNotifications.stream().allMatch(n -> !n.isRead()), "All notifications should be unread");
     }
 
     @Test
+    @DisplayName("Mencari notifikasi yang belum dibaca berdasarkan email penerima dan mengurutkan berdasarkan tanggal dibuat")
     public void testFindByRecipientEmailAndReadOrderByCreatedAtDesc() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
 
         Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
@@ -112,17 +117,18 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Notification> unreadNotifications = notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
 
-        // Assert only basic functionality
+        // Assert
         assertFalse(unreadNotifications.isEmpty(), "Should find at least one unread notification");
         assertTrue(unreadNotifications.stream().allMatch(n -> !n.isRead()), "All notifications should be unread");
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan entity terkait")
     public void testFindByRelatedEntityId() {
-        // Create test data
+        // Arrange
         UUID relatedEntityId = UUID.randomUUID();
 
         Notification notification1 = new Notification(1L, "user1@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", relatedEntityId);
@@ -134,18 +140,18 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Notification> foundNotifications = notificationRepository.findByRelatedEntityId(relatedEntityId);
 
-        // Assert only basic functionality
+        // Assert
         assertFalse(foundNotifications.isEmpty(), "Should find at least one notification");
-        assertTrue(foundNotifications.stream().allMatch(n -> n.getRelatedEntityId().equals(relatedEntityId)),
-                "All notifications should have the correct relatedEntityId");
+        assertTrue(foundNotifications.stream().allMatch(n -> n.getRelatedEntityId().equals(relatedEntityId)), "All notifications should have the correct relatedEntityId");
     }
 
     @Test
+    @DisplayName("Menghitung jumlah notifikasi yang dibaca berdasarkan recipientId")
     public void testCountByRecipientIdAndRead() {
-        // Create test data
+        // Arrange
         Long recipientId = 1L;
 
         Notification notification1 = new Notification(recipientId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
@@ -166,18 +172,19 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification4);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         long unreadCount = notificationRepository.countByRecipientIdAndRead(recipientId, false);
         long readCount = notificationRepository.countByRecipientIdAndRead(recipientId, true);
 
-        // Assert basics without exact counts
+        // Assert
         assertTrue(unreadCount > 0, "Should find at least one unread notification");
         assertTrue(readCount >= 0, "Should not find a negative number of read notifications");
     }
 
     @Test
+    @DisplayName("Menghitung jumlah notifikasi yang dibaca berdasarkan email penerima")
     public void testCountByRecipientEmailAndRead() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
         String email2 = "other@example.com";
 
@@ -199,37 +206,19 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification4);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         long unreadCount = notificationRepository.countByRecipientEmailAndRead(email, false);
         long readCount = notificationRepository.countByRecipientEmailAndRead(email, true);
 
-        // Assert basics without exact counts
+        // Assert
         assertTrue(unreadCount > 0, "Should find at least one unread notification");
         assertTrue(readCount >= 0, "Should not find a negative number of read notifications");
     }
 
     @Test
-    public void testFindByRecipientEmailOrderByCreatedAtDesc() {
-        // Create test data
-        String email = "user@example.com";
-
-        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
-
-        entityManager.persist(notification1);
-        entityManager.persist(notification2);
-        entityManager.flush();
-
-        // Test repository method
-        List<Notification> notifications = notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email);
-
-        // Assert basic functionality
-        assertFalse(notifications.isEmpty(), "Should find at least one notification");
-    }
-
-    @Test
+    @DisplayName("Mencari notifikasi berdasarkan recipientId dan mengurutkan berdasarkan tanggal dibuat")
     public void testFindByRecipientIdOrderByCreatedAtDesc() {
-        // Create test data
+        // Arrange
         Long recipientId = 1L;
 
         Notification notification1 = new Notification(recipientId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
@@ -239,10 +228,10 @@ public class NotificationRepositoryTest {
         entityManager.persist(notification2);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Notification> notifications = notificationRepository.findByRecipientIdOrderByCreatedAtDesc(recipientId);
 
-        // Assert basic functionality
+        // Assert
         assertFalse(notifications.isEmpty(), "Should find at least one notification");
     }
 }

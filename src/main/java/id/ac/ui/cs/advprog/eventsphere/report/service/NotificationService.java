@@ -6,6 +6,7 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportObserver;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.NotificationRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -150,7 +151,7 @@ public class NotificationService implements ReportObserver {
 
     public Notification markNotificationAsRead(UUID notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
-                .orElseThrow(() -> new RuntimeException("Notification not found"));
+                .orElseThrow(() -> new EntityNotFoundException("Notification not found"));
 
         notification.markAsRead();
         return notificationRepository.save(notification);

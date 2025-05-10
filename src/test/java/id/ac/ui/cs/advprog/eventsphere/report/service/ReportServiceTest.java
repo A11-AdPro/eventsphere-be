@@ -16,12 +16,9 @@ import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepositor
 import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.ArgumentCaptor;
-import org.mockito.Mockito;
+import org.junit.jupiter.api.DisplayName;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collections;
 import java.util.List;
@@ -30,6 +27,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 public class ReportServiceTest {
@@ -56,8 +54,9 @@ public class ReportServiceTest {
     }
 
     @Test
-    public void testCreateReport() throws IOException {
-        // Create test data
+    @DisplayName("Membuat laporan baru dengan data permintaan yang valid")
+    public void testCreateReport() {
+        // Arrange
         Long userId = 1L;
         String userEmail = "user@example.com";
 
@@ -67,11 +66,9 @@ public class ReportServiceTest {
         createRequest.setCategory(ReportCategory.PAYMENT);
         createRequest.setDescription("Test description");
 
-        // Create mock user
         User mockUser = new User();
         mockUser.setEmail(userEmail);
 
-        // Mock repository behavior
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
         when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
             Report report = invocation.getArgument(0);
@@ -79,39 +76,37 @@ public class ReportServiceTest {
             return report;
         });
 
-        // Call the service method
+        // Act
         ReportResponseDTO result = reportService.createReport(createRequest);
 
-        // Verify repository and notification interactions
+        // Assert
         verify(reportRepository).save(any(Report.class));
         verify(notificationService).notifyNewReport(any(Report.class));
 
-        // Verify result
         assertNotNull(result.getId());
         assertEquals(userId, result.getUserId());
         assertEquals(userEmail, result.getUserEmail());
         assertEquals(ReportCategory.PAYMENT, result.getCategory());
         assertEquals("Test description", result.getDescription());
         assertEquals(ReportStatus.PENDING, result.getStatus());
-        assertTrue(result.getAttachments().isEmpty());
     }
 
     @Test
+    @DisplayName("Mengambil email pengguna dari repository berdasarkan userId jika tidak disediakan dalam permintaan")
     public void testCreateReport_withEmptyUserEmail() {
-        // Create test data with empty email string
+        // Arrange
         Long userId = 1L;
+        String repositoryEmail = "user@example.com";
 
         CreateReportRequest createRequest = new CreateReportRequest();
         createRequest.setUserId(userId);
-        createRequest.setUserEmail(""); // Empty string email
+        createRequest.setUserEmail(""); // Email kosong
         createRequest.setCategory(ReportCategory.PAYMENT);
         createRequest.setDescription("Test description");
 
-        // Create mock user
         User mockUser = new User();
-        mockUser.setEmail("user@example.com");
+        mockUser.setEmail(repositoryEmail);
 
-        // Mock repository behavior
         when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
         when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
             Report report = invocation.getArgument(0);
@@ -119,19 +114,18 @@ public class ReportServiceTest {
             return report;
         });
 
-        // Call the service method
+        // Act
         ReportResponseDTO result = reportService.createReport(createRequest);
 
-        // Verify result has email from user repository
-        assertEquals("user@example.com", result.getUserEmail());
-
-        // Verify userRepository was called to retrieve the email
+        // Assert
+        assertEquals(repositoryEmail, result.getUserEmail());
         verify(userRepository).findById(userId);
     }
 
     @Test
+    @DisplayName("Mengambil laporan berdasarkan ID")
     public void testGetReportById() {
-        // Create test data
+        // Arrange
         UUID id = UUID.randomUUID();
         Long userId = 1L;
         String userEmail = "user@example.com";
@@ -145,16 +139,13 @@ public class ReportServiceTest {
         report.setStatus(ReportStatus.PENDING);
         report.setCreatedAt(LocalDateTime.now());
 
-        // Mock repository behavior
         when(reportRepository.findById(id)).thenReturn(Optional.of(report));
 
-        // Call the service method
+        // Act
         ReportResponseDTO result = reportService.getReportById(id);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(id);
-
-        // Verify result
         assertEquals(id, result.getId());
         assertEquals(userId, result.getUserId());
         assertEquals(userEmail, result.getUserEmail());
@@ -164,8 +155,9 @@ public class ReportServiceTest {
     }
 
     @Test
+    @DisplayName("Mengambil daftar laporan berdasarkan ID pengguna")
     public void testGetReportsByUserId() {
-        // Create test data
+        // Arrange
         Long userId = 1L;
         String userEmail = "user@example.com";
 
@@ -188,25 +180,22 @@ public class ReportServiceTest {
         report2.setCreatedAt(LocalDateTime.now());
 
         List<Report> reports = Arrays.asList(report1, report2);
-
-        // Mock repository behavior
         when(reportRepository.findByUserId(userId)).thenReturn(reports);
 
-        // Call the service method
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByUserId(userId);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findByUserId(userId);
-
-        // Verify result
         assertEquals(2, result.size());
         assertEquals(ReportCategory.PAYMENT, result.get(0).getCategory());
         assertEquals(ReportCategory.TICKET, result.get(1).getCategory());
     }
 
     @Test
+    @DisplayName("Mengambil daftar laporan berdasarkan email pengguna")
     public void testGetReportsByUserEmail() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
 
         Report report1 = new Report();
@@ -228,25 +217,22 @@ public class ReportServiceTest {
         report2.setCreatedAt(LocalDateTime.now());
 
         List<Report> reports = Arrays.asList(report1, report2);
-
-        // Mock repository behavior
         when(reportRepository.findByUserEmail(email)).thenReturn(reports);
 
-        // Call the service method
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByUserEmail(email);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findByUserEmail(email);
-
-        // Verify result
         assertEquals(2, result.size());
         assertEquals(ReportCategory.PAYMENT, result.get(0).getCategory());
         assertEquals(ReportCategory.TICKET, result.get(1).getCategory());
     }
 
     @Test
+    @DisplayName("Menambahkan komentar pada laporan dan memperbarui status jika masih pending")
     public void testAddComment() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "admin@example.com";
@@ -255,7 +241,7 @@ public class ReportServiceTest {
 
         Report report = new Report();
         report.setId(reportId);
-        report.setStatus(ReportStatus.PENDING);  // Initially PENDING
+        report.setStatus(ReportStatus.PENDING);
 
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
         commentRequest.setResponderId(responderId);
@@ -263,28 +249,22 @@ public class ReportServiceTest {
         commentRequest.setResponderRole(responderRole);
         commentRequest.setMessage(message);
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
             ReportResponse savedResponse = invocation.getArgument(0);
-            savedResponse.setId(UUID.randomUUID()); // Mock saving the comment
+            savedResponse.setId(UUID.randomUUID());
             return savedResponse;
         });
 
-        // Call the service method
+        // Act
         ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
         verify(responseRepository).save(any(ReportResponse.class));
-
-        // Verify notification service was called
         verify(notificationService).onResponseAdded(eq(report), any(ReportResponse.class));
 
-        // Verify the report status is updated to ON_PROGRESS
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
-
-        // Verify the result
         assertNotNull(result.getId());
         assertEquals(reportId, result.getReportId());
         assertEquals(responderId, result.getResponderId());
@@ -294,54 +274,51 @@ public class ReportServiceTest {
     }
 
     @Test
+    @DisplayName("Memperbarui status laporan")
     public void testUpdateReportStatus() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
-
         Report report = new Report();
         report.setId(reportId);
         report.setStatus(ReportStatus.PENDING);
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(reportRepository.save(any(Report.class))).thenReturn(report);
 
-        // Call the service method
+        // Act
         ReportResponseDTO result = reportService.updateReportStatus(reportId, ReportStatus.RESOLVED);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
         verify(reportRepository).save(report);
-
-        // Verify observer was notified
         verify(notificationService).onStatusChanged(report, ReportStatus.PENDING, ReportStatus.RESOLVED);
 
-        // Verify result
         assertEquals(reportId, result.getId());
         assertEquals(ReportStatus.RESOLVED, result.getStatus());
     }
 
     @Test
-    public void testDeleteReport() throws IOException {
-        // Create test data
+    @DisplayName("Menghapus laporan berdasarkan ID")
+    public void testDeleteReport() {
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Report report = new Report();
         report.setId(reportId);
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
 
-        // Call the service method
+        // Act
         reportService.deleteReport(reportId);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
         verify(reportRepository).delete(report);
     }
 
     @Test
+    @DisplayName("Mengambil daftar laporan berdasarkan status tertentu")
     public void testGetReportsByStatus_withStatus() {
-        // Create test data for reports
+        // Arrange
         Report report1 = new Report();
         report1.setId(UUID.randomUUID());
         report1.setCategory(ReportCategory.PAYMENT);
@@ -355,25 +332,22 @@ public class ReportServiceTest {
         report2.setCreatedAt(LocalDateTime.now());
 
         List<Report> reports = Arrays.asList(report1, report2);
-
-        // Mock repository behavior for fetching reports with PENDING status
         when(reportRepository.findByStatus(ReportStatus.PENDING)).thenReturn(reports);
 
-        // Call the service method with PENDING status
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByStatus(ReportStatus.PENDING);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findByStatus(ReportStatus.PENDING);
-
-        // Verify the result
         assertEquals(2, result.size());
         assertEquals(ReportStatus.PENDING, result.get(0).getStatus());
         assertEquals(ReportStatus.PENDING, result.get(1).getStatus());
     }
 
     @Test
-    public void testGetReportsByStatus_withNullStatus() {
-        // Create test data for reports
+    @DisplayName("Mengambil semua laporan")
+    public void testGetReportsByStatus_withNulStaltus() {
+        // Arrange
         Report report1 = new Report();
         report1.setId(UUID.randomUUID());
         report1.setCategory(ReportCategory.PAYMENT);
@@ -387,98 +361,78 @@ public class ReportServiceTest {
         report2.setCreatedAt(LocalDateTime.now());
 
         List<Report> reports = Arrays.asList(report1, report2);
-
-        // Mock repository behavior for fetching all reports
         when(reportRepository.findAll()).thenReturn(reports);
 
-        // Call the service method with null status (should fetch all reports)
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findAll();
-
-        // Verify the result
         assertEquals(2, result.size());
         assertEquals(ReportStatus.PENDING, result.get(0).getStatus());
         assertEquals(ReportStatus.RESOLVED, result.get(1).getStatus());
     }
 
     @Test
-    public void testCreateReport_withoutUserEmail() throws IOException {
-        // Create test data
+    @DisplayName("Mencari email pengguna dari repository jika null dalam permintaan")
+    public void testCreateReport_withoutUserEmail() {
+        // Arrange
         Long userId = 1L;
 
         CreateReportRequest createRequest = new CreateReportRequest();
         createRequest.setUserId(userId);
-        createRequest.setUserEmail(null); // No email provided
+        createRequest.setUserEmail(null); // Email null
         createRequest.setCategory(ReportCategory.PAYMENT);
         createRequest.setDescription("Test description");
 
-        // Create mock user
-        User mockUser = new User();
-        mockUser.setEmail("user@example.com");
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
 
-        // Mock repository behavior
-        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
-            Report report = invocation.getArgument(0);
-            report.setId(UUID.randomUUID());
-            return report;
-        });
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.createReport(createRequest)
+        );
 
-        // Call the service method
-        ReportResponseDTO result = reportService.createReport(createRequest);
-
-        // Verify result has email from user repository
-        assertEquals("user@example.com", result.getUserEmail());
+        assertTrue(exception.getMessage().contains("User email not found for userId: " + userId));
+        verify(userRepository).findById(userId);
     }
 
     @Test
+    @DisplayName("Tidak menambah observer notifikasi jika sudah terdaftar")
     public void testAddComment_withNotificationServiceAlreadyObserver() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "admin@example.com";
         String responderRole = "ADMIN";
         String message = "Test comment";
 
-        // Create a report with PENDING status
         Report report = new Report();
         report.setId(reportId);
         report.setStatus(ReportStatus.PENDING);
-
-        // Add notificationService as an observer before calling the method
         report.getObservers().add(notificationService);
 
-        // Ensure that notificationService is already in the observers list
-        assertTrue(report.getObservers().contains(notificationService));
-
-        // Create a comment request
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
         commentRequest.setResponderId(responderId);
         commentRequest.setResponderEmail(responderEmail);
         commentRequest.setResponderRole(responderRole);
         commentRequest.setMessage(message);
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
             ReportResponse savedResponse = invocation.getArgument(0);
-            savedResponse.setId(UUID.randomUUID()); // Mock saving the comment
+            savedResponse.setId(UUID.randomUUID());
             return savedResponse;
         });
 
-        // Call the service method
+        // Act
         ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
         verify(responseRepository).save(any(ReportResponse.class));
-
-        // Verify that notificationService is NOT added again
         assertTrue(report.getObservers().contains(notificationService));
 
-        // Verify result
         assertNotNull(result.getId());
         assertEquals(reportId, result.getReportId());
         assertEquals(responderId, result.getResponderId());
@@ -488,78 +442,64 @@ public class ReportServiceTest {
     }
 
     @Test
+    @DisplayName("Tidak menambah observer notifikasi pada update status jika sudah terdaftar")
     public void testUpdateReportStatus_withNotificationServiceAlreadyObserver() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         ReportStatus newStatus = ReportStatus.RESOLVED;
 
-        // Create a report with PENDING status
         Report report = new Report();
         report.setId(reportId);
         report.setStatus(ReportStatus.PENDING);
-
-        // Add notificationService as an observer before calling the method
         report.getObservers().add(notificationService);
 
-        // Ensure notificationService is already in the observers list
-        assertTrue(report.getObservers().contains(notificationService));
-
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
             Report updatedReport = invocation.getArgument(0);
-            updatedReport.setId(reportId);  // Mock updated report
+            updatedReport.setId(reportId);
             return updatedReport;
         });
 
-        // Call the service method to update the status
+        // Act
         ReportResponseDTO result = reportService.updateReportStatus(reportId, newStatus);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
         verify(reportRepository).save(report);
-
-        // Verify that notificationService was NOT added again
         assertTrue(report.getObservers().contains(notificationService));
-
-        // Verify that the report status was updated
         assertEquals(newStatus, report.getStatus());
 
-        // Verify result
         assertNotNull(result.getId());
         assertEquals(reportId, result.getId());
         assertEquals(newStatus, result.getStatus());
     }
 
     @Test
+    @DisplayName("Melempar EntityNotFoundException ketika laporan tidak ditemukan berdasarkan ID")
     public void testGetReportById_NotFound() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
-
-        // Mock repository behavior to return empty
         when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
 
-        // Verify that EntityNotFoundException is thrown
+        // Act & Assert
         EntityNotFoundException exception = assertThrows(
                 EntityNotFoundException.class,
                 () -> reportService.getReportById(reportId)
         );
-
-        // Verify exception message contains the report ID
         assertTrue(exception.getMessage().contains(reportId.toString()));
     }
 
     @Test
+    @DisplayName("Tidak mengubah status laporan yang sudah dalam proses")
     public void testAddComment_NonPendingStatus() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "admin@example.com";
 
-        // Create report with NON-PENDING status (already ON_PROGRESS)
         Report report = new Report();
         report.setId(reportId);
-        report.setStatus(ReportStatus.ON_PROGRESS); // Already in ON_PROGRESS
+        report.setStatus(ReportStatus.ON_PROGRESS); // Sudah dalam ON_PROGRESS
 
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
         commentRequest.setResponderId(responderId);
@@ -567,7 +507,6 @@ public class ReportServiceTest {
         commentRequest.setResponderRole("ADMIN");
         commentRequest.setMessage("Test comment for non-pending report");
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
         when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
             ReportResponse savedResponse = invocation.getArgument(0);
@@ -575,23 +514,20 @@ public class ReportServiceTest {
             return savedResponse;
         });
 
-        // Call the service method
+        // Act
         ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
         verify(responseRepository).save(any(ReportResponse.class));
-
-        // Verify the status wasn't changed (since it wasn't PENDING)
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
-
-        // Verify reportRepository.save wasn't called a second time to update status
         verify(reportRepository, never()).save(report);
     }
 
     @Test
+    @DisplayName("Menangani respons null dengan mengembalikan daftar komentar kosong")
     public void testConvertToResponseDTO_WithNullResponses() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long userId = 1L;
         String userEmail = "user@example.com";
@@ -604,33 +540,30 @@ public class ReportServiceTest {
         report.setDescription("Test report");
         report.setStatus(ReportStatus.PENDING);
         report.setCreatedAt(LocalDateTime.now());
-        report.setResponses(null); // Explicitly set responses to null
+        report.setResponses(null);
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
 
-        // Call the service method
+        // Act
         ReportResponseDTO result = reportService.getReportById(reportId);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
-
-        // Verify result
         assertEquals(reportId, result.getId());
         assertEquals(userId, result.getUserId());
         assertEquals(userEmail, result.getUserEmail());
-        assertNotNull(result.getComments()); // Should have an empty list, not null
+        assertNotNull(result.getComments());
         assertTrue(result.getComments().isEmpty());
     }
 
     @Test
+    @DisplayName("Menangani respons tanpa reference ke laporan")
     public void testConvertToCommentDTO_WithNullReport() {
-        // Create test data
+        // Arrange
         UUID commentId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "admin@example.com";
 
-        // Create report response with null report reference
         ReportResponse response = new ReportResponse();
         response.setId(commentId);
         response.setResponderId(responderId);
@@ -638,25 +571,21 @@ public class ReportServiceTest {
         response.setResponderRole("ADMIN");
         response.setMessage("Test comment");
         response.setCreatedAt(LocalDateTime.now());
-        response.setReport(null); // Explicitly set report to null
+        response.setReport(null);
 
-        // Create a report for findById
         UUID reportId = UUID.randomUUID();
         Report report = new Report();
         report.setId(reportId);
         report.setStatus(ReportStatus.PENDING);
         report.setResponses(Collections.singletonList(response));
 
-        // Mock repository behavior
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
 
-        // Call the service method
+        // Act
         ReportResponseDTO result = reportService.getReportById(reportId);
 
-        // Verify repository interactions
+        // Assert
         verify(reportRepository).findById(reportId);
-
-        // Verify result
         assertNotNull(result.getComments());
         assertEquals(1, result.getComments().size());
 
@@ -664,50 +593,45 @@ public class ReportServiceTest {
         assertEquals(commentId, commentDTO.getId());
         assertEquals(responderId, commentDTO.getResponderId());
         assertEquals(responderEmail, commentDTO.getResponderEmail());
-        assertNull(commentDTO.getReportId()); // Should be null since report is null
+        assertNull(commentDTO.getReportId());
     }
 
     @Test
-    public void testDeleteReport_NotFound() throws IOException {
-        // Create test data
+    @DisplayName("Melempar EntityNotFoundException ketika menghapus laporan yang tidak ditemukan")
+    public void testDeleteReport_NotFound() {
+        // Arrange
         UUID reportId = UUID.randomUUID();
-
-        // Mock repository behavior to return empty
         when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
 
-        // Verify that EntityNotFoundException is thrown
+        // Act & Assert
         assertThrows(
                 EntityNotFoundException.class,
                 () -> reportService.deleteReport(reportId)
         );
-
-        // Verify repository interactions
         verify(reportRepository).findById(reportId);
         verify(reportRepository, never()).delete(any(Report.class));
     }
 
     @Test
+    @DisplayName("Melempar EntityNotFoundException ketika memperbarui status laporan yang tidak ditemukan")
     public void testUpdateReportStatus_NotFound() {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
-
-        // Mock repository behavior to return empty
         when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
 
-        // Verify that EntityNotFoundException is thrown
+        // Act & Assert
         assertThrows(
                 EntityNotFoundException.class,
                 () -> reportService.updateReportStatus(reportId, ReportStatus.RESOLVED)
         );
-
-        // Verify repository interactions
         verify(reportRepository).findById(reportId);
         verify(reportRepository, never()).save(any(Report.class));
     }
 
     @Test
+    @DisplayName("Memotong deskripsi panjang menjadi deskripsi ringkas")
     public void testLongDescriptionTruncation() {
-        // Create test data with long description
+        // Arrange
         String longDescription = "This is a very long description that needs to be truncated because it exceeds fifty characters!";
 
         Report report = new Report();
@@ -718,21 +642,20 @@ public class ReportServiceTest {
         report.setDescription(longDescription);
 
         List<Report> reports = List.of(report);
-
-        // Mock repository
         when(reportRepository.findAll()).thenReturn(reports);
 
-        // Call service method
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
 
-        // Verify the result contains truncated description
+        // Assert
         assertEquals(1, result.size());
         assertEquals(longDescription.substring(0, 47) + "...", result.get(0).getShortDescription());
     }
 
     @Test
+    @DisplayName("Tidak memotong deskripsi pendek dalam ringkasan laporan")
     public void testShortDescription() {
-        // Create test data with short description
+        // Arrange
         String shortDescription = "This is a short description.";
 
         Report report = new Report();
@@ -743,62 +666,91 @@ public class ReportServiceTest {
         report.setDescription(shortDescription);
 
         List<Report> reports = List.of(report);
-
-        // Mock repository
         when(reportRepository.findAll()).thenReturn(reports);
 
-        // Call service method
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
 
-        // Verify the result contains the original description (not truncated)
+        // Assert
         assertEquals(1, result.size());
         assertEquals(shortDescription, result.get(0).getShortDescription());
     }
 
     @Test
+    @DisplayName("Menangani deskripsi null dalam ringkasan laporan")
     public void testNullDescription() {
-        // Create test data with null description
+        // Arrange
         Report report = new Report();
         report.setId(UUID.randomUUID());
         report.setCategory(ReportCategory.PAYMENT);
         report.setStatus(ReportStatus.PENDING);
         report.setCreatedAt(LocalDateTime.now());
-        report.setDescription(null); // Explicitly set description to null
+        report.setDescription(null);
 
         List<Report> reports = List.of(report);
-
-        // Mock repository
         when(reportRepository.findAll()).thenReturn(reports);
 
-        // Call service method
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
 
-        // Verify the result has null or empty short description
+        // Assert
         assertEquals(1, result.size());
         assertNull(result.get(0).getShortDescription());
     }
 
     @Test
+    @DisplayName("Menangani daftar respons null saat menghitung jumlah komentar")
     public void testNullResponsesList() {
-        // Create test data with null responses list
+        // Arrange
         Report report = new Report();
         report.setId(UUID.randomUUID());
         report.setCategory(ReportCategory.PAYMENT);
         report.setStatus(ReportStatus.PENDING);
         report.setCreatedAt(LocalDateTime.now());
         report.setDescription("Test description");
-        report.setResponses(null); // Explicitly set responses to null
+        report.setResponses(null);
 
         List<Report> reports = List.of(report);
-
-        // Mock repository
         when(reportRepository.findAll()).thenReturn(reports);
 
-        // Call service method
+        // Act
         List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
 
-        // Verify the result has 0 comment count
+        // Assert
         assertEquals(1, result.size());
         assertEquals(0, result.get(0).getCommentCount());
+    }
+
+    @Test
+    @DisplayName("Melempar EntityNotFoundException jika pengguna tidak ditemukan")
+    public void testCreateReport_userNotFound() {
+        // Arrange
+        Long userId = 999L;
+
+        CreateReportRequest createRequest = new CreateReportRequest();
+        createRequest.setUserId(userId);
+        createRequest.setUserEmail(null); // Email null
+        createRequest.setCategory(ReportCategory.PAYMENT);
+        createRequest.setDescription("Test description");
+
+        // Mock untuk userRepository yang mengembalikan Optional.empty (pengguna tidak ditemukan)
+        when(userRepository.findById(userId)).thenReturn(Optional.empty());
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.createReport(createRequest)
+        );
+
+        // Memastikan pesan error sesuai dengan yang diharapkan
+        assertTrue(exception.getMessage().contains("User email not found for userId: " + userId));
+
+        // Verifikasi bahwa method findById dipanggil dengan parameter yang benar
+        verify(userRepository).findById(userId);
     }
 }

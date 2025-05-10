@@ -17,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
 import java.io.IOException;
-import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -43,15 +42,15 @@ public class ReportService {
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
-        // Get user email from repository if not provided
+        // Ambil email pengguna dari repository jika tidak disediakan
         String userEmail = createRequest.getUserEmail();
         if (userEmail == null || userEmail.isEmpty()) {
             userEmail = userRepository.findById(createRequest.getUserId())
                     .map(User::getEmail)
-                    .orElse("unknown@example.com");
+                    .orElseThrow(() -> new EntityNotFoundException("User email not found for userId: " + createRequest.getUserId()));
         }
 
-        // Create new Report entity from request
+        // Membuat entitas Report dari request
         Report report = new Report();
         report.setUserId(createRequest.getUserId());
         report.setUserEmail(userEmail);
@@ -59,16 +58,15 @@ public class ReportService {
         report.setDescription(createRequest.getDescription());
         report.setStatus(ReportStatus.PENDING);
 
-        // Register observer
+        // Mendaftarkan observer
         report.getObservers().add(notificationService);
 
-        // Save the report
+        // Menyimpan laporan
         Report savedReport = reportRepository.save(report);
 
-        // Notify admins about the new report
+        // Memberi tahu admin tentang laporan baru
         notificationService.notifyNewReport(savedReport);
 
-        // Convert entity to response DTO
         return convertToResponseDTO(savedReport);
     }
 
@@ -152,12 +150,11 @@ public class ReportService {
         return convertToCommentDTO(savedComment);
     }
 
-    public void deleteReport(UUID reportId) throws IOException {
+    public void deleteReport(UUID reportId) {
         Report report = findReportById(reportId);
-
-        // Delete the report (this will cascade delete responses as well)
         reportRepository.delete(report);
     }
+
 
     private Report findReportById(UUID id) {
         return reportRepository.findById(id)
@@ -173,7 +170,6 @@ public class ReportService {
         dto.setCategory(report.getCategory());
         dto.setDescription(report.getDescription());
         dto.setStatus(report.getStatus());
-        dto.setAttachments(new ArrayList<>(report.getAttachments()));
         dto.setCreatedAt(report.getCreatedAt());
         dto.setUpdatedAt(report.getUpdatedAt());
 

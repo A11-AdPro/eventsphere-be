@@ -12,19 +12,17 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.service.ReportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.DisplayName;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
-import java.io.IOException;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -32,64 +30,53 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AttendeeReportController.class)
-@Import(AttendeeReportControllerTest.TestConfig.class)
-@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 public class AttendeeReportControllerTest {
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public ReportService reportService() {
-            return Mockito.mock(ReportService.class);
-        }
-
-        @Bean
-        public AuthService authService() {
-            AuthService mockAuthService = Mockito.mock(AuthService.class);
-            User mockUser = new User();
-            mockUser.setId(1L);
-            mockUser.setEmail("attendee@example.com");
-            mockUser.setRole(Role.ATTENDEE);
-            when(mockAuthService.getCurrentUser()).thenReturn(mockUser);
-            return mockAuthService;
-        }
-    }
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
+    @Mock
     private ReportService reportService;
 
-    @Autowired
+    @Mock
+    private AuthService authService;
+
+    @InjectMocks
+    private AttendeeReportController attendeeReportController;
+
+    private MockMvc mockMvc;
     private ObjectMapper objectMapper;
+    private User mockUser;
+
+    @BeforeEach
+    public void setUp() {
+        objectMapper = new ObjectMapper();
+        mockMvc = MockMvcBuilders.standaloneSetup(attendeeReportController).build();
+
+        // Membuat mock user di sini, akan digunakan sesuai kebutuhan masing-masing test
+        mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setEmail("attendee@example.com");
+        mockUser.setRole(Role.ATTENDEE);
+    }
 
     @Test
-    @WithMockUser(roles = "ATTENDEE")
+    @DisplayName("Membuat laporan baru oleh pengguna ATTENDEE")
     public void testCreateReport() throws Exception {
-        // Create test data
-        Long userId = 1L;
-        String userEmail = "attendee@example.com";
+        // Arrange
+        when(authService.getCurrentUser()).thenReturn(mockUser);
 
         CreateReportRequest createRequest = new CreateReportRequest();
-        createRequest.setUserId(userId);
-        createRequest.setUserEmail(userEmail);
         createRequest.setCategory(ReportCategory.PAYMENT);
         createRequest.setDescription("Test description");
 
-        // Create response DTO
         UUID reportId = UUID.randomUUID();
         ReportResponseDTO responseDTO = new ReportResponseDTO();
         responseDTO.setId(reportId);
-        responseDTO.setUserId(userId);
-        responseDTO.setUserEmail(userEmail);
+        responseDTO.setUserId(1L);
+        responseDTO.setUserEmail("attendee@example.com");
         responseDTO.setCategory(ReportCategory.PAYMENT);
         responseDTO.setDescription("Test description");
         responseDTO.setStatus(ReportStatus.PENDING);
@@ -97,25 +84,28 @@ public class AttendeeReportControllerTest {
         // Mock service
         when(reportService.createReport(any(CreateReportRequest.class))).thenReturn(responseDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(post("/api/attendee/reports")
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(createRequest)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
-                .andExpect(jsonPath("$.userId").value(userId))
-                .andExpect(jsonPath("$.userEmail").value(userEmail))
+                .andExpect(jsonPath("$.userId").value(1L))
+                .andExpect(jsonPath("$.userEmail").value("attendee@example.com"))
                 .andExpect(jsonPath("$.category").value("PAYMENT"))
                 .andExpect(jsonPath("$.status").value("PENDING"));
+
+        // Verify
+        verify(authService).getCurrentUser();
+        verify(reportService).createReport(any(CreateReportRequest.class));
     }
 
     @Test
-    @WithMockUser(roles = "ATTENDEE")
-    public void testGetReportsByUserId() throws Exception {
-        // Create test data
-        Long userId = 1L;
-        String userEmail = "attendee@example.com";
+    @DisplayName("Mendapatkan laporan yang dimiliki oleh pengguna ATTENDEE")
+    public void testGetMyReports() throws Exception {
+        // Arrange
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+
         UUID reportId1 = UUID.randomUUID();
         UUID reportId2 = UUID.randomUUID();
 
@@ -123,8 +113,8 @@ public class AttendeeReportControllerTest {
 
         ReportSummaryDTO dto1 = new ReportSummaryDTO();
         dto1.setId(reportId1);
-        dto1.setUserId(userId);
-        dto1.setUserEmail(userEmail);
+        dto1.setUserId(1L);
+        dto1.setUserEmail("attendee@example.com");
         dto1.setCategory(ReportCategory.PAYMENT);
         dto1.setStatus(ReportStatus.PENDING);
         dto1.setShortDescription("Payment issue...");
@@ -133,8 +123,8 @@ public class AttendeeReportControllerTest {
 
         ReportSummaryDTO dto2 = new ReportSummaryDTO();
         dto2.setId(reportId2);
-        dto2.setUserId(userId);
-        dto2.setUserEmail(userEmail);
+        dto2.setUserId(1L);
+        dto2.setUserEmail("attendee@example.com");
         dto2.setCategory(ReportCategory.TICKET);
         dto2.setStatus(ReportStatus.RESOLVED);
         dto2.setShortDescription("Ticket issue...");
@@ -145,71 +135,74 @@ public class AttendeeReportControllerTest {
         summaryDTOs.add(dto2);
 
         // Mock service
-        when(reportService.getReportsByUserEmail(userEmail)).thenReturn(summaryDTOs);
+        when(reportService.getReportsByUserEmail("attendee@example.com")).thenReturn(summaryDTOs);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/attendee/reports"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(reportId1.toString()))
-                .andExpect(jsonPath("$[0].userId").value(userId))
-                .andExpect(jsonPath("$[0].userEmail").value(userEmail))
+                .andExpect(jsonPath("$[0].userId").value(1L))
+                .andExpect(jsonPath("$[0].userEmail").value("attendee@example.com"))
                 .andExpect(jsonPath("$[0].category").value("PAYMENT"))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
                 .andExpect(jsonPath("$[1].id").value(reportId2.toString()))
-                .andExpect(jsonPath("$[1].userId").value(userId))
-                .andExpect(jsonPath("$[1].userEmail").value(userEmail))
                 .andExpect(jsonPath("$[1].category").value("TICKET"));
+
+        // Verify
+        verify(authService).getCurrentUser();
+        verify(reportService).getReportsByUserEmail("attendee@example.com");
     }
 
     @Test
-    @WithMockUser(roles = "ATTENDEE")
+    @DisplayName("Mendapatkan laporan berdasarkan ID milik pengguna ATTENDEE")
     public void testGetReportById() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
-        Long userId = 1L;
-        String userEmail = "attendee@example.com";
 
         ReportResponseDTO responseDTO = new ReportResponseDTO();
         responseDTO.setId(reportId);
-        responseDTO.setUserId(userId);
-        responseDTO.setUserEmail(userEmail);
+        responseDTO.setUserId(1L);
+        responseDTO.setUserEmail("attendee@example.com");
         responseDTO.setCategory(ReportCategory.PAYMENT);
         responseDTO.setDescription("Test description");
         responseDTO.setStatus(ReportStatus.PENDING);
         responseDTO.setCreatedAt(LocalDateTime.now());
 
-        // Mock service
+        when(authService.getCurrentUser()).thenReturn(mockUser);
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/attendee/reports/{id}", reportId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
-                .andExpect(jsonPath("$.userId").value(userId))
-                .andExpect(jsonPath("$.userEmail").value(userEmail))
+                .andExpect(jsonPath("$.userEmail").value("attendee@example.com"))
                 .andExpect(jsonPath("$.category").value("PAYMENT"))
                 .andExpect(jsonPath("$.status").value("PENDING"));
+
+        // Verify
+        verify(authService).getCurrentUser();
+        verify(reportService).getReportById(reportId);
     }
 
     @Test
-    @WithMockUser(roles = "ATTENDEE")
+    @DisplayName("Menambahkan komentar pada laporan milik pengguna ATTENDEE")
     public void testAddComment() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long userId = 1L;
         String userEmail = "attendee@example.com";
 
-        // Create mock report - needed for authorization check
         ReportResponseDTO responseDTO = new ReportResponseDTO();
         responseDTO.setId(reportId);
         responseDTO.setUserId(userId);
         responseDTO.setUserEmail(userEmail);
 
+        when(authService.getCurrentUser()).thenReturn(mockUser);
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
         commentRequest.setMessage("Test comment from attendee");
 
-        // Create expected response
         UUID commentId = UUID.randomUUID();
         ReportCommentDTO commentDTO = new ReportCommentDTO();
         commentDTO.setId(commentId);
@@ -220,10 +213,10 @@ public class AttendeeReportControllerTest {
         commentDTO.setMessage("Test comment from attendee");
         commentDTO.setCreatedAt(LocalDateTime.now());
 
+        // Act
         when(reportService.addComment(eq(reportId), any(CreateReportCommentRequest.class))).thenReturn(commentDTO);
 
         mockMvc.perform(post("/api/attendee/reports/{reportId}/comments", reportId)
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(commentRequest)))
                 .andExpect(status().isCreated())
@@ -232,17 +225,23 @@ public class AttendeeReportControllerTest {
                 .andExpect(jsonPath("$.responderId").value(userId))
                 .andExpect(jsonPath("$.responderEmail").value(userEmail))
                 .andExpect(jsonPath("$.responderRole").value("ATTENDEE"));
+
+        // Verify
+        verify(authService).getCurrentUser();
+        verify(reportService).getReportById(reportId);
+        verify(reportService).addComment(eq(reportId), any(CreateReportCommentRequest.class));
     }
 
     @Test
-    @WithMockUser(roles = "ATTENDEE")
+    @DisplayName("Mendapatkan laporan yang tidak dapat diakses oleh pengguna ATTENDEE")
     public void testGetReportById_Forbidden() throws Exception {
-        // Create test data
+        // Arrange
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+
         UUID reportId = UUID.randomUUID();
         Long userId = 2L;
         String userEmail = "another.attendee@example.com";
 
-        // Create report that belongs to a different user
         ReportResponseDTO responseDTO = new ReportResponseDTO();
         responseDTO.setId(reportId);
         responseDTO.setUserId(userId);
@@ -251,23 +250,27 @@ public class AttendeeReportControllerTest {
         responseDTO.setDescription("Test description");
         responseDTO.setStatus(ReportStatus.PENDING);
 
-        // Mock service
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/attendee/reports/{id}", reportId))
                 .andExpect(status().isForbidden());
+
+        // Verify
+        verify(authService).getCurrentUser();
+        verify(reportService).getReportById(reportId);
     }
 
     @Test
-    @WithMockUser(roles = "ATTENDEE")
+    @DisplayName("Menambahkan komentar yang tidak dapat diakses oleh pengguna ATTENDEE")
     public void testAddComment_Forbidden() throws Exception {
-        // Create test data
+        // Arrange
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+
         UUID reportId = UUID.randomUUID();
         Long userId = 2L;
         String userEmail = "another.attendee@example.com";
 
-        // Create report that belongs to a different user
         ReportResponseDTO responseDTO = new ReportResponseDTO();
         responseDTO.setId(reportId);
         responseDTO.setUserId(userId);
@@ -276,18 +279,20 @@ public class AttendeeReportControllerTest {
         responseDTO.setDescription("Test description");
         responseDTO.setStatus(ReportStatus.PENDING);
 
-        // Mock service
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
-        // Create comment request
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
-        commentRequest.setMessage("Test comment from attendee");
+        commentRequest.setMessage("Test comment");
 
-        // Perform request
+        // Act
         mockMvc.perform(post("/api/attendee/reports/{reportId}/comments", reportId)
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(commentRequest)))
                 .andExpect(status().isForbidden());
+
+        // Verify
+        verify(authService).getCurrentUser();
+        verify(reportService).getReportById(reportId);
+        verify(reportService, never()).addComment(any(), any());
     }
 }

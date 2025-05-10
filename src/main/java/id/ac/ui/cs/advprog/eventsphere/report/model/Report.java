@@ -37,11 +37,6 @@ public class Report {
     @Column(nullable = false)
     private ReportStatus status = ReportStatus.PENDING;
 
-    @ElementCollection
-    @CollectionTable(name = "report_attachments", joinColumns = @JoinColumn(name = "report_id"))
-    @Column(name = "attachment_url")
-    private List<String> attachments = new ArrayList<>();
-
     @Column(name = "created_at", nullable = false)
     private LocalDateTime createdAt = LocalDateTime.now();
 

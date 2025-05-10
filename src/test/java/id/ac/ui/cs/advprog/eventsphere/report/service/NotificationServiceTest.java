@@ -6,8 +6,10 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.NotificationRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.mockito.ArgumentCaptor;
 
 import java.util.Arrays;
@@ -31,20 +33,19 @@ public class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Membuat notifikasi saat status laporan berubah")
     public void testOnStatusChanged() {
-        // Create a test report
+        // Arrange
         Long userId = 1L;
         Report report = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
         report.setId(UUID.randomUUID());
-
-        // Setup ReportStatus display names
         ReportStatus oldStatus = ReportStatus.PENDING;
         ReportStatus newStatus = ReportStatus.ON_PROGRESS;
 
-        // Call the method being tested
+        // Act
         notificationService.onStatusChanged(report, oldStatus, newStatus);
 
-        // Capture and verify the notification created
+        // Assert
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(notificationCaptor.capture());
 
@@ -61,19 +62,18 @@ public class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Membuat notifikasi saat respons ditambahkan ke laporan")
     public void testOnResponseAdded() {
-        // Create a test report
+        // Arrange
         Long userId = 1L;
         Report report = new Report(userId, "user@example.com", ReportCategory.TICKET, "Ticket issue");
         report.setId(UUID.randomUUID());
-
-        // Create a test response
         ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
-        // Call the method being tested
+        // Act
         notificationService.onResponseAdded(report, response);
 
-        // Capture and verify the notification created
+        // Assert
         ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
         verify(notificationRepository).save(notificationCaptor.capture());
 
@@ -89,271 +89,236 @@ public class NotificationServiceTest {
     }
 
     @Test
+    @DisplayName("Membuat notifikasi untuk admin saat laporan baru dibuat")
     public void testNotifyNewReport() {
-        // Create a test report
+        // Arrange
         Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
         report.setId(UUID.randomUUID());
 
-        // Mock userService
         List<Long> adminIds = Arrays.asList(1L, 2L);
         when(userService.getAdminIds()).thenReturn(adminIds);
         when(userService.getUserEmail(1L)).thenReturn("admin1@example.com");
         when(userService.getUserEmail(2L)).thenReturn("admin2@example.com");
 
-        // Call the method being tested
+        // Act
         notificationService.notifyNewReport(report);
 
-        // Verify notifications were created for both admins
+        // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
     @Test
+    @DisplayName("Membuat notifikasi untuk organizer saat laporan terkait event dibuat")
     public void testNotifyOrganizerOfReport() {
-        // Create a test report
+        // Arrange
         Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
         report.setId(UUID.randomUUID());
-
-        // Create event ID
         UUID eventId = UUID.randomUUID();
 
-        // Mock userService
         List<Long> organizerIds = Arrays.asList(3L);
         when(userService.getOrganizerIds(eventId)).thenReturn(organizerIds);
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
-        // Call the method being tested
+        // Act
         notificationService.notifyOrganizerOfReport(report, eventId);
 
-        // Verify notification was created for the organizer
+        // Assert
         verify(notificationRepository).save(any(Notification.class));
     }
 
     @Test
+    @DisplayName("Mendapatkan daftar notifikasi pengguna berdasarkan ID")
     public void testGetUserNotifications() {
-        // Create test data
+        // Arrange
         Long userId = 1L;
         Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
 
         List<Notification> notifications = Arrays.asList(notification1, notification2);
-
-        // Mock repository behavior
         when(notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId)).thenReturn(notifications);
 
-        // Call service method
+        // Act
         List<Notification> result = notificationService.getUserNotifications(userId);
 
-        // Verify results
+        // Assert
         assertEquals(2, result.size());
         assertEquals(notifications, result);
-
-        // Verify repository interaction
         verify(notificationRepository).findByRecipientIdOrderByCreatedAtDesc(userId);
     }
 
     @Test
+    @DisplayName("Mendapatkan daftar notifikasi pengguna berdasarkan email")
     public void testGetUserNotificationsByEmail() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
         Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         Notification notification2 = new Notification(1L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
 
         List<Notification> notifications = Arrays.asList(notification1, notification2);
-
-        // Mock repository behavior
         when(notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email)).thenReturn(notifications);
 
-        // Call service method
+        // Act
         List<Notification> result = notificationService.getUserNotificationsByEmail(email);
 
-        // Verify results
+        // Assert
         assertEquals(2, result.size());
         assertEquals(notifications, result);
-
-        // Verify repository interaction
         verify(notificationRepository).findByRecipientEmailOrderByCreatedAtDesc(email);
     }
 
     @Test
+    @DisplayName("Mendapatkan daftar notifikasi yang belum dibaca berdasarkan ID pengguna")
     public void testGetUnreadUserNotifications() {
-        // Create test data
+        // Arrange
         Long userId = 1L;
         Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
         List<Notification> notifications = Arrays.asList(notification1);
-
-        // Mock repository behavior
         when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false)).thenReturn(notifications);
 
-        // Call service method
+        // Act
         List<Notification> result = notificationService.getUnreadUserNotifications(userId);
 
-        // Verify results
+        // Assert
         assertEquals(1, result.size());
         assertEquals(notifications, result);
-
-        // Verify repository interaction
         verify(notificationRepository).findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
     }
 
     @Test
+    @DisplayName("Mendapatkan daftar notifikasi yang belum dibaca berdasarkan email pengguna")
     public void testGetUnreadUserNotificationsByEmail() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
         Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
         List<Notification> notifications = Arrays.asList(notification1);
-
-        // Mock repository behavior
         when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(notifications);
 
-        // Call service method
+        // Act
         List<Notification> result = notificationService.getUnreadUserNotificationsByEmail(email);
 
-        // Verify results
+        // Assert
         assertEquals(1, result.size());
         assertEquals(notifications, result);
-
-        // Verify repository interaction
         verify(notificationRepository).findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
     }
 
     @Test
+    @DisplayName("Menghitung jumlah notifikasi yang belum dibaca berdasarkan ID pengguna")
     public void testCountUnreadNotifications() {
-        // Create test data
+        // Arrange
         Long userId = 1L;
         long expectedCount = 3;
-
-        // Mock repository behavior
         when(notificationRepository.countByRecipientIdAndRead(userId, false)).thenReturn(expectedCount);
 
-        // Call service method
+        // Act
         long result = notificationService.countUnreadNotifications(userId);
 
-        // Verify result
+        // Assert
         assertEquals(expectedCount, result);
-
-        // Verify repository interaction
         verify(notificationRepository).countByRecipientIdAndRead(userId, false);
     }
 
     @Test
+    @DisplayName("Menghitung jumlah notifikasi yang belum dibaca berdasarkan email pengguna")
     public void testCountUnreadNotificationsByEmail() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
         long expectedCount = 3;
-
-        // Mock repository behavior
         when(notificationRepository.countByRecipientEmailAndRead(email, false)).thenReturn(expectedCount);
 
-        // Call service method
+        // Act
         long result = notificationService.countUnreadNotificationsByEmail(email);
 
-        // Verify result
+        // Assert
         assertEquals(expectedCount, result);
-
-        // Verify repository interaction
         verify(notificationRepository).countByRecipientEmailAndRead(email, false);
     }
 
     @Test
+    @DisplayName("Menandai notifikasi sebagai telah dibaca")
     public void testMarkNotificationAsRead() {
+        // Arrange
         UUID notificationId = UUID.randomUUID();
         Long userId = 1L;
-
-        // Create a test notification
         Notification notification = new Notification(userId, "user@example.com", "ADMIN", "Title", "Message", "TYPE_1", UUID.randomUUID());
         notification.setId(notificationId);
-        notification.setRead(false);  // Set as unread initially
+        notification.setRead(false);
 
-        // Mock the repository behavior
         when(notificationRepository.findById(notificationId)).thenReturn(java.util.Optional.of(notification));
-
-        // Mock the behavior of the save method
         when(notificationRepository.save(notification)).thenReturn(notification);
 
-        // Call the service method to mark as read
+        // Act
         Notification updatedNotification = notificationService.markNotificationAsRead(notificationId);
 
-        // Verify the notification was marked as read
-        assertTrue(updatedNotification.isRead(), "The notification should be marked as read.");
-
-        // Verify repository interaction
+        // Assert
+        assertTrue(updatedNotification.isRead(), "Notifikasi seharusnya ditandai sebagai telah dibaca");
         verify(notificationRepository).save(updatedNotification);
     }
 
     @Test
+    @DisplayName("Menandai semua notifikasi sebagai telah dibaca berdasarkan ID pengguna")
     public void testMarkAllNotificationsAsRead() {
+        // Arrange
         Long userId = 1L;
-
-        // Create some unread notifications
         Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
+
         Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
         notification2.setRead(false);
 
         List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
-
-        // Mock the repository behavior
         when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false)).thenReturn(unreadNotifications);
 
-        // Call the service method to mark all notifications as read
+        // Act
         notificationService.markAllNotificationsAsRead(userId);
 
-        // Verify that save was called for each notification
+        // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
-
-        // Verify that the notifications are now marked as read
         assertTrue(notification1.isRead());
         assertTrue(notification2.isRead());
     }
 
     @Test
+    @DisplayName("Menandai semua notifikasi sebagai telah dibaca berdasarkan email pengguna")
     public void testMarkAllNotificationsAsReadByEmail() {
+        // Arrange
         String email = "user@example.com";
-
-        // Create some unread notifications
         Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
+
         Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
         notification2.setRead(false);
 
         List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
-
-        // Mock the repository behavior
         when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(unreadNotifications);
 
-        // Call the service method to mark all notifications as read
+        // Act
         notificationService.markAllNotificationsAsReadByEmail(email);
 
-        // Verify that save was called for each notification
+        // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
-
-        // Verify that the notifications are now marked as read
         assertTrue(notification1.isRead());
         assertTrue(notification2.isRead());
     }
 
     @Test
+    @DisplayName("Menangani error saat notifikasi yang akan ditandai tidak ditemukan")
     public void testMarkNotificationAsRead_NotificationNotFound() {
-        // Create a random UUID for a non-existent notification
+        // Arrange
         UUID nonExistentId = UUID.randomUUID();
-
-        // Mock the repository to return empty optional (notification not found)
         when(notificationRepository.findById(nonExistentId)).thenReturn(java.util.Optional.empty());
 
-        // Call the service method and verify that RuntimeException is thrown with correct message
-        RuntimeException exception = assertThrows(
-                RuntimeException.class,
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
                 () -> notificationService.markNotificationAsRead(nonExistentId)
         );
 
-        // Verify exception message
         assertEquals("Notification not found", exception.getMessage());
-
-        // Verify repository was called but save was not
         verify(notificationRepository).findById(nonExistentId);
         verify(notificationRepository, never()).save(any(Notification.class));
     }

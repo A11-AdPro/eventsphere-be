@@ -3,6 +3,7 @@ package id.ac.ui.cs.advprog.eventsphere.report.service;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -23,7 +24,7 @@ public class UserService {
     public String getUserEmail(Long userId) {
         return userRepository.findById(userId)
                 .map(User::getEmail)
-                .orElse("user@example.com");
+                .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
     }
 
     public List<String> getAdminEmails() {

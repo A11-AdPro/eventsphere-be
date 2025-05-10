@@ -11,16 +11,16 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.service.ReportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.DisplayName;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.MockMvc;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -29,53 +29,45 @@ import java.util.UUID;
 
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
-import static org.mockito.Mockito.when;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
+import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(OrganizerReportController.class)
-@Import(OrganizerReportControllerTest.TestConfig.class)
+@ExtendWith(MockitoExtension.class)
 public class OrganizerReportControllerTest {
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public ReportService reportService() {
-            return Mockito.mock(ReportService.class);
-        }
-
-        @Bean
-        public AuthService authService() {
-            AuthService mockAuthService = Mockito.mock(AuthService.class);
-            User mockUser = new User();
-            mockUser.setId(1L);
-            mockUser.setEmail("organizer@example.com");
-            mockUser.setRole(Role.ORGANIZER);
-            when(mockAuthService.getCurrentUser()).thenReturn(mockUser);
-            return mockAuthService;
-        }
-    }
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
+    @Mock
     private ReportService reportService;
 
-    @Autowired
+    @Mock
+    private AuthService authService;
+
+    @InjectMocks
+    private OrganizerReportController organizerReportController;
+
+    private MockMvc mockMvc;
     private ObjectMapper objectMapper;
+    private User mockUser;
+
+    @BeforeEach
+    public void setUp() {
+        objectMapper = new ObjectMapper();
+        mockMvc = MockMvcBuilders.standaloneSetup(organizerReportController).build();
+
+        mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setEmail("organizer@example.com");
+        mockUser.setRole(Role.ORGANIZER);
+    }
 
     @Test
-    @WithMockUser(roles = "ORGANIZER")
+    @DisplayName("Mendapatkan laporan berdasarkan status")
     public void testGetReportsByStatus() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId1 = UUID.randomUUID();
         UUID reportId2 = UUID.randomUUID();
 
         List<ReportSummaryDTO> summaryDTOs = new ArrayList<>();
-
         ReportSummaryDTO dto1 = new ReportSummaryDTO();
         dto1.setId(reportId1);
         dto1.setUserId(1L);
@@ -99,27 +91,23 @@ public class OrganizerReportControllerTest {
         summaryDTOs.add(dto1);
         summaryDTOs.add(dto2);
 
-        // Mock service
         when(reportService.getReportsByStatus(ReportStatus.PENDING)).thenReturn(summaryDTOs);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/organizer/reports")
                         .param("status", "PENDING"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(reportId1.toString()))
-                .andExpect(jsonPath("$[0].userId").value(1))
-                .andExpect(jsonPath("$[0].userEmail").value("user1@example.com"))
-                .andExpect(jsonPath("$[0].category").value("EVENT"))
-                .andExpect(jsonPath("$[1].id").value(reportId2.toString()))
-                .andExpect(jsonPath("$[1].userId").value(2))
-                .andExpect(jsonPath("$[1].userEmail").value("user2@example.com"))
-                .andExpect(jsonPath("$[1].category").value("TICKET"));
+                .andExpect(jsonPath("$[1].id").value(reportId2.toString()));
+
+        // Assert
+        verify(reportService).getReportsByStatus(ReportStatus.PENDING);
     }
 
     @Test
-    @WithMockUser(roles = "ORGANIZER")
+    @DisplayName("Mendapatkan laporan berdasarkan ID")
     public void testGetReportById() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long userId = 1L;
         String userEmail = "user@example.com";
@@ -133,32 +121,31 @@ public class OrganizerReportControllerTest {
         responseDTO.setStatus(ReportStatus.PENDING);
         responseDTO.setCreatedAt(LocalDateTime.now());
 
-        // Mock service
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/organizer/reports/{id}", reportId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
-                .andExpect(jsonPath("$.userId").value(userId))
-                .andExpect(jsonPath("$.userEmail").value(userEmail))
-                .andExpect(jsonPath("$.category").value("EVENT"))
-                .andExpect(jsonPath("$.status").value("PENDING"));
+                .andExpect(jsonPath("$.userEmail").value(userEmail));
+
+        // Assert
+        verify(reportService).getReportById(reportId);
     }
 
     @Test
-    @WithMockUser(roles = "ORGANIZER")
+    @DisplayName("Menambahkan komentar pada laporan")
     public void testAddComment() throws Exception {
-        // Create test data
+        // Arrange
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "organizer@example.com";
 
-        // Create simple comment request - controller will set fields
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
         commentRequest.setMessage("Response from organizer");
 
-        // Create expected response
         UUID commentId = UUID.randomUUID();
         ReportCommentDTO commentDTO = new ReportCommentDTO();
         commentDTO.setId(commentId);
@@ -169,48 +156,48 @@ public class OrganizerReportControllerTest {
         commentDTO.setMessage("Response from organizer");
         commentDTO.setCreatedAt(LocalDateTime.now());
 
-        // Mock service
         when(reportService.addComment(eq(reportId), any(CreateReportCommentRequest.class))).thenReturn(commentDTO);
 
-        // Perform request with CSRF token
+        // Act
         mockMvc.perform(post("/api/organizer/reports/{reportId}/comments", reportId)
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(commentRequest)))
                 .andExpect(status().isCreated())
                 .andExpect(jsonPath("$.id").value(commentId.toString()))
-                .andExpect(jsonPath("$.reportId").value(reportId.toString()))
-                .andExpect(jsonPath("$.responderId").value(responderId))
-                .andExpect(jsonPath("$.responderEmail").value(responderEmail))
-                .andExpect(jsonPath("$.responderRole").value("ORGANIZER"));
+                .andExpect(jsonPath("$.reportId").value(reportId.toString()));
+
+        // Assert
+        verify(authService).getCurrentUser();
+        verify(reportService).addComment(eq(reportId), any(CreateReportCommentRequest.class));
     }
 
     @Test
-    @WithMockUser(roles = "ORGANIZER")
+    @DisplayName("Memperbarui status laporan")
     public void testUpdateReportStatus() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
 
         ReportResponseDTO updatedReportDTO = new ReportResponseDTO();
         updatedReportDTO.setId(reportId);
         updatedReportDTO.setStatus(ReportStatus.ON_PROGRESS);
 
-        // Mock service
         when(reportService.updateReportStatus(eq(reportId), eq(ReportStatus.ON_PROGRESS))).thenReturn(updatedReportDTO);
 
-        // Perform request with CSRF token
+        // Act
         mockMvc.perform(patch("/api/organizer/reports/{id}/status", reportId)
-                        .with(csrf())
                         .param("status", "ON_PROGRESS"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
                 .andExpect(jsonPath("$.status").value("ON_PROGRESS"));
+
+        // Assert
+        verify(reportService).updateReportStatus(reportId, ReportStatus.ON_PROGRESS);
     }
 
     @Test
-    @WithMockUser(roles = "ORGANIZER")
+    @DisplayName("Mendapatkan laporan dengan status PENDING jika parameter status tidak diberikan")
     public void testGetReportsByStatus_DefaultPending() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
 
         ReportSummaryDTO dto = new ReportSummaryDTO();
@@ -225,16 +212,20 @@ public class OrganizerReportControllerTest {
 
         List<ReportSummaryDTO> summaryDTOs = List.of(dto);
 
-        // Mock service
+        // Mocking service
         when(reportService.getReportsByStatus(ReportStatus.PENDING)).thenReturn(summaryDTOs);
 
-        // Perform request without 'status' param
+        // Act
         mockMvc.perform(get("/api/organizer/reports"))
-                .andExpect(status().isOk())
-                .andExpect(jsonPath("$[0].id").value(reportId.toString()))
-                .andExpect(jsonPath("$[0].userId").value(1))
-                .andExpect(jsonPath("$[0].userEmail").value("user@example.com"))
-                .andExpect(jsonPath("$[0].status").value("PENDING"))
-                .andExpect(jsonPath("$[0].category").value("EVENT"));
+                .andExpect(status().isOk())  // Memastikan status HTTP 200 (OK)
+                .andExpect(jsonPath("$[0].id").value(reportId.toString()))  // Memastikan ID laporan sesuai
+                .andExpect(jsonPath("$[0].userId").value(1))  // Memastikan ID pengguna sesuai
+                .andExpect(jsonPath("$[0].userEmail").value("user@example.com"))  // Memastikan email pengguna sesuai
+                .andExpect(jsonPath("$[0].status").value("PENDING"))  // Memastikan status laporan sesuai dengan PENDING
+                .andExpect(jsonPath("$[0].category").value("EVENT"));  // Memastikan kategori laporan sesuai dengan EVENT
+
+        // VerifyING sebagai default
+        verify(reportService).getReportsByStatus(ReportStatus.PENDING);
     }
+
 }

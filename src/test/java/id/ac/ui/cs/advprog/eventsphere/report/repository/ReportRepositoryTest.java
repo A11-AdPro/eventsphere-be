@@ -4,12 +4,12 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
 import org.springframework.test.context.TestPropertySource;
-import org.springframework.test.context.jdbc.Sql;
 
 import java.util.List;
 import java.util.UUID;
@@ -27,8 +27,9 @@ public class ReportRepositoryTest {
     private ReportRepository reportRepository;
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan userId")
     public void testFindByUserId() {
-        // Create test data
+        // Arrange
         Long userId1 = 1L;
         Long userId2 = 2L;
 
@@ -41,18 +42,19 @@ public class ReportRepositoryTest {
         entityManager.persist(report3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Report> foundReports = reportRepository.findByUserId(userId1);
 
-        // Verify results
+        // Assert
         assertEquals(2, foundReports.size());
         assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.PAYMENT));
         assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.TICKET));
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan email pengguna")
     public void testFindByUserEmail() {
-        // Create test data
+        // Arrange
         String email1 = "user1@example.com";
         String email2 = "user2@example.com";
 
@@ -65,18 +67,19 @@ public class ReportRepositoryTest {
         entityManager.persist(report3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Report> foundReports = reportRepository.findByUserEmail(email1);
 
-        // Verify results
+        // Assert
         assertEquals(2, foundReports.size());
         assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.PAYMENT));
         assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.TICKET));
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan status")
     public void testFindByStatus() {
-        // Create test data
+        // Arrange
         Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Pending Report");
         report1.setStatus(ReportStatus.PENDING);
 
@@ -91,12 +94,12 @@ public class ReportRepositoryTest {
         entityManager.persist(report3);
         entityManager.flush();
 
-        // Test repository methods
+        // Act
         List<Report> pendingReports = reportRepository.findByStatus(ReportStatus.PENDING);
         List<Report> progressReports = reportRepository.findByStatus(ReportStatus.ON_PROGRESS);
         List<Report> resolvedReports = reportRepository.findByStatus(ReportStatus.RESOLVED);
 
-        // Verify results
+        // Assert
         assertEquals(1, pendingReports.size());
         assertEquals(1, progressReports.size());
         assertEquals(1, resolvedReports.size());
@@ -107,8 +110,9 @@ public class ReportRepositoryTest {
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan kategori")
     public void testFindByCategory() {
-        // Create test data
+        // Arrange
         Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Payment Report 1");
         Report report2 = new Report(2L, "user2@example.com", ReportCategory.PAYMENT, "Payment Report 2");
         Report report3 = new Report(3L, "user3@example.com", ReportCategory.TICKET, "Ticket Report");
@@ -118,20 +122,21 @@ public class ReportRepositoryTest {
         entityManager.persist(report3);
         entityManager.flush();
 
-        // Test repository methods
+        // Act
         List<Report> paymentReports = reportRepository.findByCategory(ReportCategory.PAYMENT);
         List<Report> ticketReports = reportRepository.findByCategory(ReportCategory.TICKET);
         List<Report> eventReports = reportRepository.findByCategory(ReportCategory.EVENT);
 
-        // Verify results
+        // Assert
         assertEquals(2, paymentReports.size());
         assertEquals(1, ticketReports.size());
         assertEquals(0, eventReports.size());
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan userId dan status")
     public void testFindByUserIdAndStatus() {
-        // Create test data
+        // Arrange
         Long userId = 1L;
 
         Report report1 = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Pending Report");
@@ -148,11 +153,11 @@ public class ReportRepositoryTest {
         entityManager.persist(report3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Report> userPendingReports = reportRepository.findByUserIdAndStatus(userId, ReportStatus.PENDING);
         List<Report> userResolvedReports = reportRepository.findByUserIdAndStatus(userId, ReportStatus.RESOLVED);
 
-        // Verify results
+        // Assert
         assertEquals(1, userPendingReports.size());
         assertEquals(1, userResolvedReports.size());
         assertEquals(ReportCategory.PAYMENT, userPendingReports.get(0).getCategory());
@@ -160,8 +165,9 @@ public class ReportRepositoryTest {
     }
 
     @Test
+    @DisplayName("Mencari notifikasi berdasarkan userEmail dan status")
     public void testFindByUserEmailAndStatus() {
-        // Create test data
+        // Arrange
         String email = "user@example.com";
 
         Report report1 = new Report(1L, email, ReportCategory.PAYMENT, "Pending Report");
@@ -178,11 +184,11 @@ public class ReportRepositoryTest {
         entityManager.persist(report3);
         entityManager.flush();
 
-        // Test repository method
+        // Act
         List<Report> userPendingReports = reportRepository.findByUserEmailAndStatus(email, ReportStatus.PENDING);
         List<Report> userResolvedReports = reportRepository.findByUserEmailAndStatus(email, ReportStatus.RESOLVED);
 
-        // Verify results
+        // Assert
         assertEquals(1, userPendingReports.size());
         assertEquals(1, userResolvedReports.size());
         assertEquals(ReportCategory.PAYMENT, userPendingReports.get(0).getCategory());

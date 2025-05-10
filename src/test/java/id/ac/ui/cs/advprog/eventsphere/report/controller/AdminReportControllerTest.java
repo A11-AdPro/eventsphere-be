@@ -11,18 +11,16 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportCategory;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.service.ReportService;
 import com.fasterxml.jackson.databind.ObjectMapper;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import org.mockito.Mockito;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
-import org.springframework.boot.test.context.TestConfiguration;
-import org.springframework.context.annotation.Bean;
-import org.springframework.context.annotation.Import;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.junit.jupiter.api.DisplayName;
+import org.mockito.InjectMocks;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.MediaType;
-import org.springframework.security.test.context.support.WithMockUser;
-import org.springframework.test.context.ActiveProfiles;
 import org.springframework.test.web.servlet.MockMvc;
-import org.springframework.test.web.servlet.MvcResult;
+import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -32,48 +30,34 @@ import java.util.UUID;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
-import static org.springframework.security.test.web.servlet.request.SecurityMockMvcRequestPostProcessors.csrf;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
-import static org.springframework.test.web.servlet.result.MockMvcResultHandlers.print;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
-@WebMvcTest(AdminReportController.class)
-@Import(AdminReportControllerTest.TestConfig.class)
-@ActiveProfiles("test")
+@ExtendWith(MockitoExtension.class)
 public class AdminReportControllerTest {
 
-    @TestConfiguration
-    static class TestConfig {
-        @Bean
-        public ReportService reportService() {
-            return Mockito.mock(ReportService.class);
-        }
-
-        @Bean
-        public AuthService authService() {
-            AuthService mockAuthService = Mockito.mock(AuthService.class);
-            User mockUser = new User();
-            mockUser.setId(1L);
-            mockUser.setEmail("admin@example.com");
-            mockUser.setRole(Role.ADMIN);
-            when(mockAuthService.getCurrentUser()).thenReturn(mockUser);
-            return mockAuthService;
-        }
-    }
-
-    @Autowired
-    private MockMvc mockMvc;
-
-    @Autowired
+    @Mock
     private ReportService reportService;
 
-    @Autowired
+    @Mock
+    private AuthService authService;
+
+    @InjectMocks
+    private AdminReportController adminReportController;
+
+    private MockMvc mockMvc;
     private ObjectMapper objectMapper;
 
+    @BeforeEach
+    public void setUp() {
+        objectMapper = new ObjectMapper();
+        mockMvc = MockMvcBuilders.standaloneSetup(adminReportController).build();
+    }
+
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Mengambil semua laporan")
     public void testGetAllReports() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId1 = UUID.randomUUID();
         UUID reportId2 = UUID.randomUUID();
         List<ReportSummaryDTO> summaryDTOs = new ArrayList<>();
@@ -104,7 +88,7 @@ public class AdminReportControllerTest {
         // Mock service
         when(reportService.getReportsByStatus(null)).thenReturn(summaryDTOs);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/admin/reports"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(reportId1.toString()))
@@ -118,9 +102,9 @@ public class AdminReportControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Mengambil laporan berdasarkan status")
     public void testGetReportsByStatus() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId1 = UUID.randomUUID();
         UUID reportId2 = UUID.randomUUID();
 
@@ -152,7 +136,7 @@ public class AdminReportControllerTest {
         // Mock service
         when(reportService.getReportsByStatus(ReportStatus.RESOLVED)).thenReturn(summaryDTOs);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/admin/reports")
                         .param("status", "RESOLVED"))
                 .andExpect(status().isOk())
@@ -167,9 +151,9 @@ public class AdminReportControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Mengambil laporan berdasarkan ID")
     public void testGetReportById() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
         Long userId = 1L;
         String userEmail = "user@example.com";
@@ -186,7 +170,7 @@ public class AdminReportControllerTest {
         // Mock service
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(get("/api/admin/reports/{id}", reportId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
@@ -197,17 +181,20 @@ public class AdminReportControllerTest {
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Menambahkan komentar pada laporan")
     public void testAddComment() throws Exception {
-        // Create test data
+        // Arrange
+        User mockUser = new User();
+        mockUser.setId(1L);
+        mockUser.setEmail("admin@example.com");
+        mockUser.setRole(Role.ADMIN);
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "admin@example.com";
 
         CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
-        commentRequest.setResponderId(responderId);
-        commentRequest.setResponderEmail(responderEmail);
-        commentRequest.setResponderRole("ADMIN");
         commentRequest.setMessage("Response from admin");
 
         UUID commentId = UUID.randomUUID();
@@ -223,9 +210,8 @@ public class AdminReportControllerTest {
         // Mock service
         when(reportService.addComment(eq(reportId), any(CreateReportCommentRequest.class))).thenReturn(commentDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(post("/api/admin/reports/{reportId}/comments", reportId)
-                        .with(csrf())
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(commentRequest)))
                 .andExpect(status().isCreated())
@@ -234,12 +220,18 @@ public class AdminReportControllerTest {
                 .andExpect(jsonPath("$.responderId").value(responderId))
                 .andExpect(jsonPath("$.responderEmail").value(responderEmail))
                 .andExpect(jsonPath("$.responderRole").value("ADMIN"));
+
+        // Verify that authService.getCurrentUser() was called
+        verify(authService).getCurrentUser();
+
+        // Verify commentRequest was modified with the correct user information
+        verify(reportService).addComment(eq(reportId), any(CreateReportCommentRequest.class));
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Memperbarui status laporan")
     public void testUpdateReportStatus() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
 
         ReportResponseDTO updatedReportDTO = new ReportResponseDTO();
@@ -249,27 +241,31 @@ public class AdminReportControllerTest {
         // Mock service
         when(reportService.updateReportStatus(eq(reportId), eq(ReportStatus.RESOLVED))).thenReturn(updatedReportDTO);
 
-        // Perform request
+        // Act
         mockMvc.perform(patch("/api/admin/reports/{id}/status", reportId)
-                        .with(csrf())
                         .param("status", "RESOLVED"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
                 .andExpect(jsonPath("$.status").value("RESOLVED"));
+
+        // Verify the updateReportStatus was called with status change
+        verify(reportService).updateReportStatus(eq(reportId), eq(ReportStatus.RESOLVED));
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
+    @DisplayName("Menghapus laporan")
     public void testDeleteReport() throws Exception {
-        // Create test data
+        // Arrange
         UUID reportId = UUID.randomUUID();
 
         // Mock service
         doNothing().when(reportService).deleteReport(reportId);
 
-        // Perform request
-        mockMvc.perform(delete("/api/admin/reports/{id}", reportId)
-                        .with(csrf()))
+        // Act
+        mockMvc.perform(delete("/api/admin/reports/{id}", reportId))
                 .andExpect(status().isNoContent());
+
+        // Verify that reportService.deleteReport() was called with the correct ID
+        verify(reportService).deleteReport(reportId);
     }
 }

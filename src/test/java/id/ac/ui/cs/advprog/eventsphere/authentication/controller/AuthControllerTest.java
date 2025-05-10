@@ -14,7 +14,7 @@ import org.springframework.http.ResponseEntity;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotNull;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
 public class AuthControllerTest {
 
@@ -62,7 +62,7 @@ public class AuthControllerTest {
         registerRequest.setEmail("new@example.com");
         registerRequest.setPassword("password");
         registerRequest.setFullName("New User");
-        registerRequest.setRole(Role.ATTENDEE);
+        registerRequest.setRole(Role.ATTENDEE); // Role is explicitly set
 
         User user = new User();
         user.setId(1L);
@@ -76,6 +76,34 @@ public class AuthControllerTest {
         // Then
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals("User registered successfully", response.getBody());
+    }
+
+    @Test
+    public void testRegisterWithNullRole() {
+        // Given
+        RegisterRequest registerRequest = new RegisterRequest();
+        registerRequest.setEmail("new@example.com");
+        registerRequest.setPassword("password");
+        registerRequest.setFullName("New User");
+        registerRequest.setRole(null); // Role is explicitly set to null
+
+        User user = new User();
+        user.setId(1L);
+        user.setEmail("new@example.com");
+
+        when(authService.register(any(RegisterRequest.class))).thenReturn(user);
+
+        // When
+        ResponseEntity<?> response = authController.register(registerRequest);
+
+        // Then
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("User registered successfully", response.getBody());
+
+        // Verify that the role was set to ATTENDEE before passing to service
+        verify(authService).register(argThat(request ->
+                request.getRole() == Role.ATTENDEE
+        ));
     }
 
     @Test

@@ -2,6 +2,7 @@ package id.ac.ui.cs.advprog.eventsphere.report.model;
 
 import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportObserver;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.UUID;
@@ -11,15 +12,18 @@ import static org.mockito.Mockito.*;
 public class ReportTest {
 
     @Test
+    @DisplayName("Membuat laporan baru dengan parameter yang valid")
     public void testCreateReport() {
+        // Arrange
         Long userId = 1L;
         String userEmail = "user@example.com";
         ReportCategory category = ReportCategory.PAYMENT;
         String description = "Payment failed but money was deducted";
 
+        // Act
         Report report = new Report(userId, userEmail, category, description);
 
-        // ID akan null sampai disimpan ke database
+        // Assert
         assertEquals(userId, report.getUserId());
         assertEquals(userEmail, report.getUserEmail());
         assertEquals(category, report.getCategory());
@@ -27,18 +31,20 @@ public class ReportTest {
         assertEquals(ReportStatus.PENDING, report.getStatus());
         assertNotNull(report.getCreatedAt());
         assertNull(report.getUpdatedAt());
-        assertTrue(report.getAttachments().isEmpty());
         assertTrue(report.getResponses().isEmpty());
     }
 
     @Test
+    @DisplayName("Memeriksa setter dan getter untuk properti laporan")
     public void testReportSettersAndGetters() {
+        // Arrange
         Report report = new Report();
         UUID id = UUID.randomUUID();
         Long userId = 1L;
         String userEmail = "user@example.com";
         LocalDateTime now = LocalDateTime.now();
 
+        // Act
         report.setId(id);
         report.setUserId(userId);
         report.setUserEmail(userEmail);
@@ -47,8 +53,8 @@ public class ReportTest {
         report.setStatus(ReportStatus.ON_PROGRESS);
         report.setCreatedAt(now);
         report.setUpdatedAt(now);
-        report.setAttachments(new ArrayList<>());
 
+        // Assert
         assertEquals(id, report.getId());
         assertEquals(userId, report.getUserId());
         assertEquals(userEmail, report.getUserEmail());
@@ -57,108 +63,90 @@ public class ReportTest {
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
         assertEquals(now, report.getCreatedAt());
         assertEquals(now, report.getUpdatedAt());
-        assertNotNull(report.getAttachments());
     }
 
     @Test
+    @DisplayName("Update status laporan dan notifikasi observer")
     public void testUpdateStatus() {
-        // Create a report
+        // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
         report.setStatus(ReportStatus.PENDING);
 
-        // Create and register a mock observer
         ReportObserver mockObserver = mock(ReportObserver.class);
         report.getObservers().add(mockObserver);
 
-        // Update the status
+        // Act
         report.updateStatus(ReportStatus.ON_PROGRESS);
 
-        // Verify the status was updated
+        // Assert
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
         assertNotNull(report.getUpdatedAt());
 
-        // Verify the observer was notified
         verify(mockObserver).onStatusChanged(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
     }
 
     @Test
-    public void testAddAttachment() {
-        // Create a report
-        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
-
-        // Add an attachment
-        report.getAttachments().add("file1.jpg");
-
-        // Verify attachment was added
-        assertEquals(1, report.getAttachments().size());
-        assertEquals("file1.jpg", report.getAttachments().get(0));
-    }
-
-    @Test
+    @DisplayName("Menambahkan response ke laporan dan notifikasi observer")
     public void testAddResponse() {
-        // Create a report
+        // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
 
-        // Create a response
         ReportResponse response = new ReportResponse();
         response.setResponderId(2L);
         response.setResponderEmail("admin@example.com");
         response.setResponderRole("ADMIN");
         response.setMessage("Admin response");
 
-        // Create and register a mock observer
         ReportObserver mockObserver = mock(ReportObserver.class);
         report.getObservers().add(mockObserver);
 
-        // Add the response
+        // Act
         report.addResponse(response);
 
-        // Verify response was added
+        // Assert
         assertEquals(1, report.getResponses().size());
         assertEquals(response, report.getResponses().get(0));
         assertEquals(report, response.getReport());
 
-        // Verify observer was notified
         verify(mockObserver).onResponseAdded(report, response);
     }
 
     @Test
+    @DisplayName("Menghapus observer dari laporan")
     public void testRemoveObserver() {
-        // Create a report
+        // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
 
-        // Create and register a mock observer
         ReportObserver mockObserver = mock(ReportObserver.class);
         report.getObservers().add(mockObserver);
 
-        // Verify observer was added
+        // Assert before
         assertEquals(1, report.getObservers().size());
 
-        // Remove the observer
+        // Act
         report.removeObserver(mockObserver);
 
-        // Verify observer was removed
+        // Assert after
         assertEquals(0, report.getObservers().size());
     }
 
     @Test
+    @DisplayName("Menambahkan observer ke laporan tanpa duplikasi")
     public void testAddObserver() {
-        // Create a report
+        // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Test description");
-
-        // Create a mock observer
         ReportObserver mockObserver = mock(ReportObserver.class);
 
-        // Add observer using the method
+        // Act - tambahkan observer
         report.addObserver(mockObserver);
 
-        // Verify the observer is in the list
+        // Assert
         assertTrue(report.getObservers().contains(mockObserver));
 
-        // Try adding the same observer again
+        // Act - coba tambahkan observer yang sama
         report.addObserver(mockObserver);
 
-        // Ensure it was not added twice
+        // Assert - memastikan tidak ada duplikasi
         assertEquals(1, report.getObservers().size());
     }
 }

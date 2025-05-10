@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.DisplayName;
 import java.time.LocalDateTime;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
@@ -8,7 +9,9 @@ import static org.junit.jupiter.api.Assertions.*;
 public class NotificationTest {
 
     @Test
+    @DisplayName("Membuat notifikasi baru dengan parameter yang valid")
     public void testCreateNotification() {
+        // Arrange (Menyiapkan semua data)
         Long recipientId = 1L;
         String recipientEmail = "user@example.com";
         UUID relatedEntityId = UUID.randomUUID();
@@ -17,11 +20,11 @@ public class NotificationTest {
         String message = "Test Message";
         String type = "TEST_TYPE";
 
+        // Act (Aksi yang diuji)
         Notification notification = new Notification(
                 recipientId, recipientEmail, senderRole, title, message, type, relatedEntityId);
 
-        // ID akan null sampai disimpan ke database
-        // assertNotNull(notification.getId());
+        // Assert (Memastikan hasil)
         assertEquals(recipientId, notification.getRecipientId());
         assertEquals(recipientEmail, notification.getRecipientEmail());
         assertEquals(senderRole, notification.getSenderRole());
@@ -34,7 +37,9 @@ public class NotificationTest {
     }
 
     @Test
+    @DisplayName("Memeriksa setter dan getter untuk properti notifikasi")
     public void testNotificationSettersAndGetters() {
+        // Arrange
         Notification notification = new Notification();
         UUID id = UUID.randomUUID();
         Long recipientId = 1L;
@@ -42,6 +47,7 @@ public class NotificationTest {
         UUID relatedEntityId = UUID.randomUUID();
         LocalDateTime now = LocalDateTime.now();
 
+        // Act
         notification.setId(id);
         notification.setRecipientId(recipientId);
         notification.setRecipientEmail(recipientEmail);
@@ -53,6 +59,7 @@ public class NotificationTest {
         notification.setRelatedEntityId(relatedEntityId);
         notification.setCreatedAt(now);
 
+        // Assert
         assertEquals(id, notification.getId());
         assertEquals(recipientId, notification.getRecipientId());
         assertEquals(recipientEmail, notification.getRecipientEmail());
@@ -66,14 +73,19 @@ public class NotificationTest {
     }
 
     @Test
+    @DisplayName("Menandai notifikasi sebagai telah dibaca")
     public void testMarkAsRead() {
+        // Arrange
         Notification notification = new Notification(
                 1L, "user@example.com", "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID());
 
+        // Assert before
         assertFalse(notification.isRead());
 
+        // Act
         notification.markAsRead();
 
+        // Assert after
         assertTrue(notification.isRead());
     }
 }
