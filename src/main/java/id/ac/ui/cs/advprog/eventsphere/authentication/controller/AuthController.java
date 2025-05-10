@@ -26,14 +26,14 @@ public class AuthController {
         if (registerRequest.getRole() == null) {
             registerRequest.setRole(Role.ATTENDEE);
         }
-        User user = authService.register(registerRequest);
+        authService.register(registerRequest);
         return ResponseEntity.ok("User registered successfully");
     }
 
     @PostMapping("/admin/register")
     @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<?> registerAdmin(@RequestBody RegisterRequest registerRequest) {
-        User user = authService.register(registerRequest);
+        authService.register(registerRequest);
         return ResponseEntity.ok("User registered successfully");
     }
 

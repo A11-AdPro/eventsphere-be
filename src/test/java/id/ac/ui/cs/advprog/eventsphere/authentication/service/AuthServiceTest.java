@@ -4,7 +4,6 @@ import id.ac.ui.cs.advprog.eventsphere.authentication.dto.RegisterRequest;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
-import id.ac.ui.cs.advprog.eventsphere.authentication.service.AuthServiceImpl;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.mockito.InjectMocks;
