@@ -1,12 +1,13 @@
 package id.ac.ui.cs.advprog.eventsphere.topup.service;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.dto.PurchaseRequestDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TransactionDTO;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.topup.model.Transaction;
 import id.ac.ui.cs.advprog.eventsphere.topup.repository.TransactionRepository;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
+import id.ac.ui.cs.advprog.eventsphere.ticket.service.TicketService;
 import id.ac.ui.cs.advprog.eventsphere.topup.util.CurrentUserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,50 +24,70 @@ public class TransactionServiceImpl implements TransactionService {
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
     private final CurrentUserUtil currentUserUtil;
+    private final TicketService ticketService;
+
 
     @Autowired
     public TransactionServiceImpl(UserRepository userRepository,
                                   TransactionRepository transactionRepository,
-                                  CurrentUserUtil currentUserUtil) {
+                                  CurrentUserUtil currentUserUtil,
+                                  TicketService ticketService) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
         this.currentUserUtil = currentUserUtil;
+        this.ticketService = ticketService;
     }
 
     @Override
     @Transactional
-    public TopUpResponseDTO processTicketPurchase(PurchaseRequestDTO purchaseRequest) {
+    public TopUpResponseDTO processTicketPurchaseById(Long ticketId) {
         String email = currentUserUtil.getCurrentUserEmail();
         User user = userRepository.findByEmail(email)
                 .orElseThrow(() -> new RuntimeException("User not found"));
-
+        
+        TicketResponse ticketInfo = ticketService.getTicketById(ticketId);
+        
+        if (ticketInfo.isSoldOut()) {
+            throw new RuntimeException("Ticket is sold out");
+        }
+        
+        int ticketPrice = (int) ticketInfo.getPrice();
+        if (user.getBalance() < ticketPrice) {
+            Transaction transaction = Transaction.builder()
+                    .user(user)
+                    .amount(ticketPrice)
+                    .timestamp(LocalDateTime.now())
+                    .type(Transaction.TransactionType.TICKET_PURCHASE)
+                    .status(Transaction.TransactionStatus.FAILED)
+                    .description("Failed: Insufficient balance")
+                    .eventId(String.valueOf(ticketInfo.getEventId()))
+                    .build();
+            
+            transactionRepository.save(transaction);
+            throw new RuntimeException("Insufficient balance");
+        }
+        
+        TicketResponse updatedTicket = ticketService.purchaseTicket(ticketId);
+        
+        user.deductBalance(ticketPrice);
+        userRepository.save(user);
+        
         Transaction transaction = Transaction.builder()
                 .user(user)
-                .amount(purchaseRequest.getAmount())
+                .amount(ticketPrice)
                 .timestamp(LocalDateTime.now())
                 .type(Transaction.TransactionType.TICKET_PURCHASE)
-                .status(Transaction.TransactionStatus.PENDING)
-                .description(purchaseRequest.getDescription())
-                .eventId(purchaseRequest.getEventId())
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Purchase ticket: " + updatedTicket.getName())
+                .eventId(String.valueOf(updatedTicket.getEventId()))
                 .build();
-
-        // Check if user has enough balance
-        boolean successful = user.deductBalance(purchaseRequest.getAmount());
-
-        if (successful) {
-            transaction.setStatus(Transaction.TransactionStatus.SUCCESS);
-            userRepository.save(user);
-        } else {
-            transaction.setStatus(Transaction.TransactionStatus.FAILED);
-            transaction.setDescription("Failed: Insufficient balance");
-        }
-
+        
         transaction = transactionRepository.save(transaction);
-
+        
         return TopUpResponseDTO.builder()
                 .transactionId(transaction.getId())
                 .userId(user.getId())
-                .amount(purchaseRequest.getAmount())
+                .amount(ticketPrice)
                 .newBalance(user.getBalance())
                 .timestamp(transaction.getTimestamp())
                 .status(transaction.getStatus().toString())

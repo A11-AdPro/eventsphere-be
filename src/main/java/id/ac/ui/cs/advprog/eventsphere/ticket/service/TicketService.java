@@ -11,4 +11,5 @@ public interface TicketService {
     List<TicketResponse> getAvailableTickets();
     TicketResponse purchaseTicket(Long id);
     void deleteTicket(Long id);
+    TicketResponse getTicketById(Long id);
 }

@@ -89,6 +89,13 @@ public class TicketServiceImpl implements TicketService {
                 .soldOut(t.isSoldOut())
                 .build();
     }
+
+    @Override
+    public TicketResponse getTicketById(Long id) {
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(() -> new TicketNotFoundException());
+        return toResponse(ticket);
+    }
 }
 
 
