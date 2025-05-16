@@ -8,7 +8,7 @@
 * [Caressa Putri Yuliantoro](https://github.com/caressapy) - 2206081742
 
 ## 💡 Daftar Modul Aplikasi 💡
-#### 1. Authentication (🙋 / 💻 / 🕺 ) (Patricia Herningtyas & Muhammad Almerazka YOCENDRA)
+#### 1. Authentication (🙋 / 💻 / 🕺 ) (Patricia Herningtyas & Muhammad Almerazka Yocendra)
 #### 2. Manajemen Acara (🙋 / 💻 / 🕺 / 👤) (Calvin Joy Tarigan)
 #### 3. Sistem Tiket (🙋 / 💻 / 🕺) (Caressa Putri Yuliantoro)
 #### 4. Manajemen Pembayaran dan Saldo ( 💻 / 🕺) (Patricia Herningtyas)
