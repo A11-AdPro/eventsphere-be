@@ -1,16 +1,37 @@
 # Advanced Programming Group Project 2024/2025 - A11
 
-##  Tutorial Module 9
-Patricia Herningtyas - 2306152241
+## Payment and Balance Management Architecture Overview
 
-### Component Diagram Manajemen Pembayaran dan Saldo
-![alt text](image.png)
+#### Controllers Layer
+- TopUpController: Handles REST API endpoints for top-up operations and balance queries
+- TransactionController: Manages endpoints for ticket purchases and transaction history
 
-![alt text](image-1.png)
+### Service Layer
+- Implements business logic with interfaces and implementations (following good design practices)
+- TopUpService/Impl: Manages wallet top-up operations
+- TransactionService/Impl: Handles ticket purchases and transaction management
 
-![alt text](image-2.png)
+### Design Patterns Used
+1. Strategy Pattern:
+    - TopUpStrategy interface with StandardTopUpStrategy implementation
+    - Allows for flexible top-up behavior that can be changed at runtime
 
-![alt text](image-3.png)
+2. Factory Pattern:
+    - TopUpFactory creates different types of top-ups (Fixed or Custom)
+    - Encapsulates creation logic and provides preset top-up amounts
 
-### Code Diagram Diagram Manajemen Pembayaran dan Saldo
-![alt text](image-4.png)
+3. DTO Pattern:
+    - Clean separation of data transfer objects from domain models
+    - Examples: TopUpRequestDTO, TopUpResponseDTO, TransactionDTO
+
+### Component Diagram Payment and Balance Management
+![alt text](/diagrams/image.png)
+
+![alt text](/diagrams/image-1.png)
+
+![alt text](/diagrams/image-2.png)
+
+![alt text](/diagrams/image-3.png)
+
+### Code Diagram Diagram Payment and Balance Management
+![alt text](/diagrams/image-4.png)
