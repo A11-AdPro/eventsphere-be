@@ -1,27 +1,16 @@
 package id.ac.ui.cs.advprog.eventsphere.review.repository;
 
-import org.springframework.stereotype.Repository;
 import id.ac.ui.cs.advprog.eventsphere.review.model.Review;
+import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Query;
+import org.springframework.stereotype.Repository;
+
 import java.util.List;
-import java.util.Optional;
 
 @Repository
-public interface ReviewRepository {
-    void save(Review review);
-
+public interface ReviewRepository extends JpaRepository<Review, Long> {
     List<Review> findByEventId(Long eventId);
 
-    Optional<Review> findById(Long id);
-
-    void update(Review review);
-
-    void delete(Long id);
-
-    boolean existsByEventIdAndUserId(Long eventId, Long userId);
-
-    List<Review> findReportedReviews();
-
-    List<Review> findByEventIdAndRatingGreaterThanEqual(Long eventId, Integer minRating);
-
-    List<Review> findByEventIdAndCommentContaining(Long eventId, String keyword);
+    @Query("SELECT AVG(r.rating) FROM Review r WHERE r.eventId = :eventId")
+    Double calculateAverageRatingForEvent(Long eventId);
 }

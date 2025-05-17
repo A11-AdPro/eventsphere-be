@@ -1,34 +1,50 @@
 package id.ac.ui.cs.advprog.eventsphere.review.model;
 
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import jakarta.persistence.*;
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Data;
+import lombok.NoArgsConstructor;
 
 import java.time.LocalDateTime;
-import java.util.ArrayList;
-import java.util.List;
 
 @Data
+@Entity
+@Builder
+@NoArgsConstructor
+@AllArgsConstructor
+@Table(name = "reviews")
 public class Review {
+    @Id
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private Long id;
-    private Long eventId;
-    private Long userId;
-    private String username;
-    private int rating;
-    private String comment;
-    private List<String> imagePaths = new ArrayList<>();
-    private LocalDateTime createdAt;
-    private LocalDateTime updatedAt;
-    private String organizerResponse;
-    private LocalDateTime responseDate;
-    private boolean reported;
-    private String reportReason;
-    private boolean deleted;
 
-    public Review() {
+    @Column(nullable = false)
+    private String content;
+
+    @Column(nullable = false)
+    private Integer rating;  // Rating from 1-5
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "user_id", nullable = false)
+    private User user;
+
+    @Column(nullable = false)
+    private Long eventId;
+
+    private LocalDateTime createdAt;
+
+    private LocalDateTime updatedAt;
+
+    @PrePersist
+    protected void onCreate() {
         this.createdAt = LocalDateTime.now();
         this.updatedAt = LocalDateTime.now();
     }
 
-    public boolean isEditable() {
-        return LocalDateTime.now().isBefore(createdAt.plusDays(7));
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = LocalDateTime.now();
     }
 }
