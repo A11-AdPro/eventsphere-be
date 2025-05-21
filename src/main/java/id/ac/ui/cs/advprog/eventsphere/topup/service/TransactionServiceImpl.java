@@ -10,12 +10,14 @@ import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
 import id.ac.ui.cs.advprog.eventsphere.ticket.service.TicketService;
 import id.ac.ui.cs.advprog.eventsphere.topup.util.CurrentUserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -92,6 +94,17 @@ public class TransactionServiceImpl implements TransactionService {
                 .timestamp(transaction.getTimestamp())
                 .status(transaction.getStatus().toString())
                 .build();
+    }
+
+    // Async method
+    @Async("taskExecutor")
+    public CompletableFuture<TopUpResponseDTO> processTicketPurchaseByIdAsync(Long ticketId) {
+        try {
+            TopUpResponseDTO response = processTicketPurchaseById(ticketId);
+            return CompletableFuture.completedFuture(response);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
     }
 
     @Override

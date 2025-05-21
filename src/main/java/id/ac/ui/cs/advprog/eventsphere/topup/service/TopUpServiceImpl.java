@@ -10,12 +10,14 @@ import id.ac.ui.cs.advprog.eventsphere.topup.strategy.TopUpFactory;
 import id.ac.ui.cs.advprog.eventsphere.topup.strategy.TopUpStrategy;
 import id.ac.ui.cs.advprog.eventsphere.topup.util.CurrentUserUtil;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 public class TopUpServiceImpl implements TopUpService {
@@ -87,6 +89,19 @@ public class TopUpServiceImpl implements TopUpService {
             transaction = transactionRepository.save(transaction);
 
             throw new IllegalArgumentException(e.getMessage());
+        }
+    }
+
+    // Async method
+    @Async("taskExecutor")
+    public CompletableFuture<TopUpResponseDTO> processTopUpAsync(TopUpRequestDTO topUpRequest) {
+        try {
+            TopUpResponseDTO response = processTopUp(topUpRequest);
+            return CompletableFuture.completedFuture(response);
+        } catch (IllegalArgumentException e) {
+            return CompletableFuture.failedFuture(e);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
         }
     }
 
