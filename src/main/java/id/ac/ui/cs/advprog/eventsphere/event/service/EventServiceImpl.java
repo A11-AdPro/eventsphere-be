@@ -3,13 +3,13 @@ package id.ac.ui.cs.advprog.eventsphere.event.service;
 import id.ac.ui.cs.advprog.eventsphere.event.dto.EventCreateDTO;
 import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.event.dto.EventUpdateDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.dto.UserSummaryDTO;
 import id.ac.ui.cs.advprog.eventsphere.event.exception.EventNotFoundException;
 import id.ac.ui.cs.advprog.eventsphere.event.exception.UnauthorizedAccessException;
 import id.ac.ui.cs.advprog.eventsphere.event.model.Event;
-import id.ac.ui.cs.advprog.eventsphere.event.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 import id.ac.ui.cs.advprog.eventsphere.event.repository.EventRepository;
-// import id.ac.ui.cs.advprog.eventsphere.event.service.EventService;
+import id.ac.ui.cs.advprog.eventsphere.event.service.EventService;
 import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
@@ -29,43 +29,38 @@ public class EventServiceImpl implements EventService {
     @Override
     @Transactional
     public EventResponseDTO createEvent(EventCreateDTO eventCreateDTO, User organizer) {
-        Event event = Event.builder()
-                .title(eventCreateDTO.getTitle())
-                .description(eventCreateDTO.getDescription())
-                .eventDate(eventCreateDTO.getEventDate())
-                .location(eventCreateDTO.getLocation())
-                .price(eventCreateDTO.getPrice())
-                .organizer(organizer)
-                .build();
         
+        Event event = modelMapper.map(eventCreateDTO, Event.class);
+        event.setOrganizer(organizer);
         Event savedEvent = eventRepository.save(event);
-        return mapToEventResponseDTO(savedEvent);
+
+        return toResponseDTO(savedEvent);
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<EventResponseDTO> getAllEvents() {
+    public List<EventResponseDTO> getAllActiveEvents() {
         return eventRepository.findByIsActiveTrue()
                 .stream()
-                .map(this::mapToEventResponseDTO)
-                .collect(Collectors.toList());
+                .map(this::toResponseDTO)
+                .toList();
     }
     
     @Override
     @Transactional(readOnly = true)
-    public EventResponseDTO getEventById(Long id) {
-        Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
-        return mapToEventResponseDTO(event);
+    public EventResponseDTO getActiveEventById(Long id) {
+        return eventRepository.findByIdAndIsActiveTrue(id)
+                .map(this::toResponseDTO)
+                .orElseThrow(() -> new EventNotFoundException("Active event not found with id: " + id));
     }
     
     @Override
     @Transactional(readOnly = true)
-    public List<EventResponseDTO> getEventsByOrganizer(User organizer) {
+    public List<EventResponseDTO> getActiveEventsByOrganizer(User organizer) {
         return eventRepository.findByOrganizerAndIsActiveTrue(organizer)
                 .stream()
-                .map(this::mapToEventResponseDTO)
-                .collect(Collectors.toList());
+                .map(this::toResponseDTO)
+                .toList();
     }
     
     @Override
@@ -74,60 +69,70 @@ public class EventServiceImpl implements EventService {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
         
-        if (!event.getOrganizer().getId().equals(organizer.getId())) {
-            throw new UnauthorizedAccessException("You are not authorized to update this event");
-        }
+        validateEventOwnership(event, organizer);
+        validateEventNotTooClose(event.getEventDate(), 24);
         
-        // Check if event date is not too close to update
-        LocalDateTime cutoffDate = LocalDateTime.now().plusDays(2);
-        if (event.getEventDate().isBefore(cutoffDate)) {
-            throw new IllegalStateException("Event cannot be updated within 48 hours of its scheduled time");
-        }
-        
-        if (eventUpdateDTO.getTitle() != null) {
-            event.setTitle(eventUpdateDTO.getTitle());
-        }
-        if (eventUpdateDTO.getDescription() != null) {
-            event.setDescription(eventUpdateDTO.getDescription());
-        }
-        if (eventUpdateDTO.getEventDate() != null) {
-            event.setEventDate(eventUpdateDTO.getEventDate());
-        }
-        if (eventUpdateDTO.getLocation() != null) {
-            event.setLocation(eventUpdateDTO.getLocation());
-        }
-        if (eventUpdateDTO.getPrice() != null) {
-            event.setPrice(eventUpdateDTO.getPrice());
-        }
-        
+        modelMapper.map(eventUpdateDTO, event);
         Event updatedEvent = eventRepository.save(event);
-        return mapToEventResponseDTO(updatedEvent);
+        
+        return toResponseDTO(updatedEvent);
     }
-    
+
     @Override
     @Transactional
-    public void deleteEvent(Long id, User organizer) {
+    public String cancelEvent(Long id, User organizer) {
         Event event = eventRepository.findById(id)
                 .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
         
-        if (!event.getOrganizer().getId().equals(organizer.getId())) {
-            throw new UnauthorizedAccessException("You are not authorized to delete this event");
+        validateEventOwnership(event, organizer);
+        
+        if (event.getEventDate().isBefore(LocalDateTime.now())) {
+            throw new IllegalStateException("Cannot cancel past events");
         }
         
-        // Soft delete by setting isActive to false
+        event.setCancelled(true);
+        event.setCancellationTime(LocalDateTime.now());
+        eventRepository.save(event);
+        return "Event with ID " + id + " has been canceled successfully";
+    }
+
+    @Override
+    @Transactional
+    public String deleteEvent(Long id, User organizer) {
+        Event event = eventRepository.findById(id)
+                .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
+        
+        validateEventOwnership(event, organizer);
+
+        if (!(event.isCancelled() || event.getEventDate().isBefore(LocalDateTime.now()))) {
+            throw new IllegalStateException(
+                "Only cancelled or past events can be deleted");
+        }
+        
         event.setActive(false);
         eventRepository.save(event);
+        return "Event with ID " + id + " has been deleted successfully";
     }
     
-    private EventResponseDTO mapToEventResponseDTO(Event event) {
+    // Helper methods
+    private EventResponseDTO toResponseDTO(Event event) {
         EventResponseDTO dto = modelMapper.map(event, EventResponseDTO.class);
-        
-        UserSummaryDTO organizerDTO = new UserSummaryDTO();
-        organizerDTO.setId(event.getOrganizer().getId());
-        organizerDTO.setUsername(event.getOrganizer().getUsername());
-        organizerDTO.setName(event.getOrganizer().getName());
-        
-        dto.setOrganizer(organizerDTO);
+        dto.setOrganizerId(event.getOrganizer().getId());
+        dto.setOrganizerName(event.getOrganizer().getFullName());
         return dto;
+    }
+    
+    private void validateEventOwnership(Event event, User organizer) {
+        if (!event.getOrganizer().getId().equals(organizer.getId())) {
+            throw new UnauthorizedAccessException("User is not the organizer of this event");
+        }
+    }
+    
+    private void validateEventNotTooClose(LocalDateTime eventDate, int hoursBefore) {
+        if (eventDate.isBefore(LocalDateTime.now().plusHours(hoursBefore))) {
+            throw new IllegalStateException(
+                String.format("Event cannot be modified within %d hours of its start time", hoursBefore)
+            );
+        }
     }
 }
