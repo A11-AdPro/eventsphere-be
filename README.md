@@ -214,3 +214,6 @@ The Observer pattern is the core design pattern used in the Review module, imple
 ## Conclusion
 
 The Review module demonstrates a well-structured, maintainable design using the Observer pattern to handle complex interactions between components while maintaining loose coupling. This approach enables the system to evolve with new requirements while minimizing changes to existing code.
+
+
+Penerapan Software Architectures
