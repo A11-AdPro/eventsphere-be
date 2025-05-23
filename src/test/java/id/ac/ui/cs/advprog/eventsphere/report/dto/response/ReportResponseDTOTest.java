@@ -38,7 +38,6 @@ public class ReportResponseDTOTest {
         dto.setCategory(ReportCategory.PAYMENT);
         dto.setDescription("Test description");
         dto.setStatus(ReportStatus.PENDING);
-        dto.setAttachments(attachments);
         dto.setCreatedAt(now);
         dto.setUpdatedAt(now);
         dto.setComments(comments);
@@ -50,7 +49,6 @@ public class ReportResponseDTOTest {
         assertEquals(ReportCategory.PAYMENT, dto.getCategory());
         assertEquals("Test description", dto.getDescription());
         assertEquals(ReportStatus.PENDING, dto.getStatus());
-        assertEquals(attachments, dto.getAttachments());
         assertEquals(now, dto.getCreatedAt());
         assertEquals(now, dto.getUpdatedAt());
         assertEquals(comments, dto.getComments());
