@@ -1,31 +1,29 @@
 package id.ac.ui.cs.advprog.eventsphere.event.controller;
 
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
 import id.ac.ui.cs.advprog.eventsphere.event.dto.EventCreateDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.event.dto.EventUpdateDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.dto.UserSummaryDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.model.User;
-import id.ac.ui.cs.advprog.eventsphere.event.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
+import id.ac.ui.cs.advprog.eventsphere.event.exception.UnauthorizedAccessException;
 import id.ac.ui.cs.advprog.eventsphere.event.service.EventService;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContext;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
+import java.util.*;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -33,197 +31,174 @@ class EventControllerTest {
 
     @Mock
     private EventService eventService;
-
     @Mock
     private UserRepository userRepository;
-
+    @Mock
+    private UserDetails userDetails;
     @InjectMocks
     private EventController eventController;
 
-    private User testUser;
+    private User organizer;
     private EventCreateDTO createDTO;
     private EventUpdateDTO updateDTO;
     private EventResponseDTO responseDTO;
-    private List<EventResponseDTO> eventList;
-    private UserSummaryDTO userSummaryDTO;
 
     @BeforeEach
     void setUp() {
-        // Setup test User
-        testUser = new User();
-        testUser.setId(1L);
-        testUser.setName("Test Organizer");
-        
-        // Setup UserSummaryDTO
-        userSummaryDTO = new UserSummaryDTO();
-        userSummaryDTO.setId(1L);
-        userSummaryDTO.setName("Test Organizer");
-        userSummaryDTO.setUsername("testorg");
+        organizer = new User();
+        organizer.setId(100L);
+        organizer.setEmail("organizer@test.com");
 
-        // Setup test DTOs
-        LocalDateTime futureDate = LocalDateTime.now().plusDays(7);
-        
         createDTO = new EventCreateDTO();
-        createDTO.setTitle("Test Event");
-        createDTO.setDescription("Test Description");
-        createDTO.setEventDate(futureDate);
-        createDTO.setLocation("Test Location");
-        createDTO.setPrice(new BigDecimal("100.00"));
+        createDTO.setTitle("My Event");
+        createDTO.setDescription("Desc");
+        createDTO.setLocation("Location");
+        createDTO.setPrice(BigDecimal.TEN);
+        createDTO.setEventDate(LocalDateTime.now().plusDays(5));
 
         updateDTO = new EventUpdateDTO();
-        updateDTO.setTitle("Updated Event");
-        updateDTO.setDescription("Updated Description");
-        updateDTO.setEventDate(futureDate.plusDays(1));
-        updateDTO.setLocation("Updated Location");
-        updateDTO.setPrice(new BigDecimal("150.00"));
+        updateDTO.setTitle("Updated Title");
+        updateDTO.setDescription("Updated Desc");
+        updateDTO.setLocation("New Location");
+        updateDTO.setPrice(BigDecimal.valueOf(20));
+        updateDTO.setEventDate(LocalDateTime.now().plusDays(10));
 
         responseDTO = new EventResponseDTO();
         responseDTO.setId(1L);
-        responseDTO.setTitle("Test Event");
-        responseDTO.setDescription("Test Description");
-        responseDTO.setEventDate(futureDate);
-        responseDTO.setLocation("Test Location");
-        responseDTO.setPrice(new BigDecimal("100.00"));
-        responseDTO.setOrganizer(userSummaryDTO);
-        responseDTO.setCreatedAt(LocalDateTime.now().minusDays(1));
-        responseDTO.setUpdatedAt(LocalDateTime.now());
-        responseDTO.setActive(true);
-
-        eventList = Arrays.asList(responseDTO);
-
-        // Setup mock behavior for userRepository
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
+        responseDTO.setTitle("My Event");
+        responseDTO.setOrganizerId(organizer.getId());
     }
 
     @Test
-    void testCreateEvent() {
-        // Setup mock behavior
-        when(eventService.createEvent(any(EventCreateDTO.class), any(User.class)))
+    void testCreateEvent_Success() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.of(organizer));
+        when(eventService.createEvent(eq(createDTO), eq(organizer)))
                 .thenReturn(responseDTO);
 
-        // Call the controller method
-        ResponseEntity<EventResponseDTO> response = eventController.createEvent(createDTO);
+        ResponseEntity<EventResponseDTO> response =
+                eventController.createEvent(createDTO);
 
-        // Verify the result
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertEquals(responseDTO, response.getBody());
-        
-        // Verify the service was called
-        verify(eventService).createEvent(eq(createDTO), eq(testUser));
+        verify(eventService).createEvent(eq(createDTO), eq(organizer));
     }
 
-    // @Test
-    // void testGetAllEvents() {
-    //     // Setup mock behavior
-    //     when(eventService.getAllEvents()).thenReturn(eventList);
-
-    //     // Call the controller method
-    //     ResponseEntity<List<EventResponseDTO>> response = eventController.getAllEvents();
-
-    //     // Verify the result
-    //     assertEquals(HttpStatus.OK, response.getStatusCode());
-    //     assertEquals(eventList, response.getBody());
-        
-    //     // Verify the service was called
-    //     verify(eventService).getAllEvents();
-    // }
-
-    // @Test
-    // void testGetEventById() {
-    //     // Setup mock behavior
-    //     when(eventService.getEventById(1L)).thenReturn(responseDTO);
-
-    //     // Call the controller method
-    //     ResponseEntity<EventResponseDTO> response = eventController.getEventById(1L);
-
-    //     // Verify the result
-    //     assertEquals(HttpStatus.OK, response.getStatusCode());
-    //     assertEquals(responseDTO, response.getBody());
-        
-    //     // Verify the service was called
-    //     verify(eventService).getEventById(1L);
-    // }
-
     @Test
-    void testGetOrganizerEvents() {
-        // Setup mock behavior
-        when(eventService.getEventsByOrganizer(testUser)).thenReturn(eventList);
+    void testGetAllEvents() {
+        List<EventResponseDTO> mockEvents = Arrays.asList(responseDTO);
+        when(eventService.getAllActiveEvents()).thenReturn(mockEvents);
 
-        // Call the controller method
-        ResponseEntity<List<EventResponseDTO>> response = eventController.getOrganizerEvents();
+        ResponseEntity<List<EventResponseDTO>> response =
+                eventController.getAllEvents();
 
-        // Verify the result
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(eventList, response.getBody());
-        
-        // Verify the service was called
-        verify(eventService).getEventsByOrganizer(testUser);
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        verify(eventService).getAllActiveEvents();
     }
 
     @Test
-    void testUpdateEvent() {
-        // Setup mock behavior
-        EventResponseDTO updatedResponse = new EventResponseDTO();
-        updatedResponse.setId(1L);
-        updatedResponse.setTitle("Updated Event");
-        updatedResponse.setDescription("Updated Description");
-        updatedResponse.setEventDate(LocalDateTime.now().plusDays(8));
-        updatedResponse.setLocation("Updated Location");
-        updatedResponse.setPrice(new BigDecimal("150.00"));
-        updatedResponse.setOrganizer(userSummaryDTO);
-        
-        when(eventService.updateEvent(eq(1L), any(EventUpdateDTO.class), any(User.class)))
-                .thenReturn(updatedResponse);
+    void testGetActiveEventById() {
+        when(eventService.getActiveEventById(1L)).thenReturn(responseDTO);
 
-        // Call the controller method
-        ResponseEntity<EventResponseDTO> response = eventController.updateEvent(1L, updateDTO);
+        ResponseEntity<EventResponseDTO> response =
+                eventController.getActiveEventById(1L);
 
-        // Verify the result
         assertEquals(HttpStatus.OK, response.getStatusCode());
-        assertEquals(updatedResponse, response.getBody());
-        assertEquals("Updated Event", response.getBody().getTitle());
-        
-        // Verify the service was called
-        verify(eventService).updateEvent(eq(1L), eq(updateDTO), eq(testUser));
+        assertEquals(responseDTO, response.getBody());
+        verify(eventService).getActiveEventById(1L);
     }
 
     @Test
-    void testDeleteEvent() {
-        // Setup mock behavior
-        doNothing().when(eventService).deleteEvent(anyLong(), any(User.class));
+    void testGetOrganizerEvents_Success() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.of(organizer));
 
-        // Call the controller method
-        ResponseEntity<Void> response = eventController.deleteEvent(1L);
+        List<EventResponseDTO> mockEvents = Collections.singletonList(responseDTO);
+        when(eventService.getActiveEventsByOrganizer(organizer)).thenReturn(mockEvents);
 
-        // Verify the result
-        assertEquals(HttpStatus.NO_CONTENT, response.getStatusCode());
-        assertNull(response.getBody());
-        
-        // Verify the service was called
-        verify(eventService).deleteEvent(1L, testUser);
+        ResponseEntity<List<EventResponseDTO>> response =
+                eventController.getOrganizerEvents();
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().size());
+        verify(eventService).getActiveEventsByOrganizer(organizer);
     }
 
     @Test
-    void testGetTestOrganizer_ThrowsException_WhenUserNotFound() {
-        // Setup mock to return empty Optional
-        when(userRepository.findById(1L)).thenReturn(Optional.empty());
+    void testUpdateEvent_Success() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.of(organizer));
 
-        // Test the exception
-        RuntimeException exception = assertThrows(RuntimeException.class, () -> {
-            eventController.createEvent(createDTO);
-        });
-        
-        assertEquals("Test organizer not found", exception.getMessage());
+        EventResponseDTO updatedDTO = new EventResponseDTO();
+        updatedDTO.setId(1L);
+        updatedDTO.setTitle("Updated Title");
+        when(eventService.updateEvent(eq(1L), eq(updateDTO), eq(organizer)))
+                .thenReturn(updatedDTO);
+
+        ResponseEntity<EventResponseDTO> response =
+                eventController.updateEvent(1L, updateDTO);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals(updatedDTO, response.getBody());
+        verify(eventService).updateEvent(eq(1L), eq(updateDTO), eq(organizer));
     }
-    
-    // @Test
-    // void testGetTestOrganizer() {
-    //     // Setup is already done in BeforeEach
-        
-    //     // Call the method indirectly through one of the controller methods
-    //     eventController.getAllEvents();
-        
-    //     // Verify the repository method was called
-    //     verify(userRepository).findById(1L);
-    // }
+
+    @Test
+    void testCancelEvent_Success() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.of(organizer));
+        when(eventService.cancelEvent(1L, organizer))
+                .thenReturn("Event canceled");
+
+        ResponseEntity<Map<String, String>> response =
+                eventController.cancelEvent(1L);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Event canceled", response.getBody().get("message"));
+        verify(eventService).cancelEvent(1L, organizer);
+    }
+
+    @Test
+    void testDeleteEvent_Success() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.of(organizer));
+        when(eventService.deleteEvent(1L, organizer))
+                .thenReturn("Event deleted");
+
+        ResponseEntity<Map<String, String>> response =
+                eventController.deleteEvent(1L);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("Event deleted", response.getBody().get("message"));
+        verify(eventService).deleteEvent(1L, organizer);
+    }
+
+    @Test
+    void testCreateEvent_UserNotFound() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.empty());
+
+        assertThrows(UnauthorizedAccessException.class,
+                () -> eventController.createEvent(createDTO));
+
+        verify(eventService, never()).createEvent(any(), any());
+    }
+
+    private void mockAuthorization() {
+        SecurityContext context = mock(SecurityContext.class);
+        Authentication authentication = mock(Authentication.class);
+        when(context.getAuthentication()).thenReturn(authentication);
+        when(authentication.getPrincipal()).thenReturn(userDetails);
+        when(userDetails.getUsername()).thenReturn("organizer@test.com");
+        SecurityContextHolder.setContext(context);
+    }
 }

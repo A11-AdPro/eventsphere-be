@@ -1,32 +1,24 @@
 package id.ac.ui.cs.advprog.eventsphere.event.service;
 
-import id.ac.ui.cs.advprog.eventsphere.event.dto.EventCreateDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.dto.EventUpdateDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.dto.UserSummaryDTO;
-import id.ac.ui.cs.advprog.eventsphere.event.exception.EventNotFoundException;
-import id.ac.ui.cs.advprog.eventsphere.event.exception.UnauthorizedAccessException;
+import id.ac.ui.cs.advprog.eventsphere.event.dto.*;
+import id.ac.ui.cs.advprog.eventsphere.event.exception.*;
 import id.ac.ui.cs.advprog.eventsphere.event.model.Event;
-import id.ac.ui.cs.advprog.eventsphere.event.model.User;
-import id.ac.ui.cs.advprog.eventsphere.event.model.UserRole;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User; 
 import id.ac.ui.cs.advprog.eventsphere.event.repository.EventRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InjectMocks;
-import org.mockito.Mock;
+import org.mockito.*;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.modelmapper.ModelMapper;
 
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.List;
-import java.util.Optional;
-
-import static org.junit.jupiter.api.Assertions.*;
+import java.util.*;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
+import static org.junit.jupiter.api.Assertions.*;
 
 @ExtendWith(MockitoExtension.class)
 class EventServiceImplTest {
@@ -36,233 +28,226 @@ class EventServiceImplTest {
 
     @Mock
     private ModelMapper modelMapper;
-
+    
     @InjectMocks
     private EventServiceImpl eventService;
 
+    @Captor
+    private ArgumentCaptor<Event> eventArgumentCaptor;
+
+    private Event testEvent;
     private User organizer;
-    private User anotherUser;
-    private Event event;
-    private EventCreateDTO eventCreateDTO;
-    private EventUpdateDTO eventUpdateDTO;
-    private EventResponseDTO eventResponseDTO;
-    private UserSummaryDTO userSummaryDTO;
+    private EventCreateDTO createDTO; 
+    private EventUpdateDTO updateDTO; 
+    private Event eventStateAfterSave; 
+    private EventResponseDTO expectedResponseDTO;
+    private Long eventId = 100L;
+
 
     @BeforeEach
     void setUp() {
-        // Set up test data
-        organizer = User.builder()
-                .id(1L)
-                .username("organizer")
-                .password("password")
-                .name("Event Organizer")
-                .email("organizer@example.com")
-                .role(UserRole.ROLE_ORGANIZER)
-                .build();
+        organizer = new User();
+        organizer.setId(1L);
 
-        anotherUser = User.builder()
-                .id(2L)
-                .username("user2")
-                .password("password")
-                .name("Another User")
-                .email("another@example.com")
-                .role(UserRole.ROLE_ORGANIZER)
-                .build();
+        testEvent = new Event();
+        testEvent.setId(eventId);
+        testEvent.setTitle("Original Title");
+        testEvent.setDescription("Original Desc");
+        testEvent.setEventDate(LocalDateTime.now().plusDays(5));
+        testEvent.setLocation("Original Location");
+        testEvent.setPrice(BigDecimal.TEN);
+        testEvent.setActive(true);
+        testEvent.setCancelled(false);
+        testEvent.setOrganizer(organizer);
 
-        LocalDateTime eventDate = LocalDateTime.now().plusDays(10);
-        event = Event.builder()
-                .id(1L)
-                .title("Test Event")
-                .description("Test Description")
-                .eventDate(eventDate)
-                .location("Test Location")
-                .price(new BigDecimal("100.00"))
-                .organizer(organizer)
-                .isActive(true)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
+        createDTO = new EventCreateDTO();
+        createDTO.setTitle("New Event");
+        createDTO.setDescription("New Desc");
+        createDTO.setLocation("New Location");
+        createDTO.setPrice(BigDecimal.valueOf(20));
+        createDTO.setEventDate(LocalDateTime.now().plusDays(7));
 
-        eventCreateDTO = new EventCreateDTO();
-        eventCreateDTO.setTitle("New Event");
-        eventCreateDTO.setDescription("New Description");
-        eventCreateDTO.setEventDate(eventDate);
-        eventCreateDTO.setLocation("New Location");
-        eventCreateDTO.setPrice(new BigDecimal("150.00"));
+        updateDTO = new EventUpdateDTO();
+        updateDTO.setTitle("Updated Title");
+        updateDTO.setDescription("Updated Desc");
+        updateDTO.setLocation("Updated Location");
+        updateDTO.setPrice(BigDecimal.valueOf(50));
+        updateDTO.setEventDate(LocalDateTime.now().plusDays(10)); // Tanggal baru
 
-        eventUpdateDTO = new EventUpdateDTO();
-        eventUpdateDTO.setTitle("Updated Event");
-        eventUpdateDTO.setDescription("Updated Description");
-        eventUpdateDTO.setEventDate(eventDate);
-        eventUpdateDTO.setLocation("Updated Location");
-        eventUpdateDTO.setPrice(new BigDecimal("200.00"));
+        eventStateAfterSave = new Event();
+        eventStateAfterSave.setId(eventId);
+        eventStateAfterSave.setTitle(updateDTO.getTitle());
+        eventStateAfterSave.setDescription(updateDTO.getDescription());
+        eventStateAfterSave.setLocation(updateDTO.getLocation());
+        eventStateAfterSave.setPrice(updateDTO.getPrice());
+        eventStateAfterSave.setEventDate(updateDTO.getEventDate());
+        eventStateAfterSave.setOrganizer(organizer);
+        eventStateAfterSave.setActive(true);
+        eventStateAfterSave.setCancelled(false);
 
-        userSummaryDTO = new UserSummaryDTO();
-        userSummaryDTO.setId(organizer.getId());
-        userSummaryDTO.setUsername(organizer.getUsername());
-        userSummaryDTO.setName(organizer.getName());
-
-        eventResponseDTO = new EventResponseDTO();
-        eventResponseDTO.setId(1L);
-        eventResponseDTO.setTitle("Test Event");
-        eventResponseDTO.setDescription("Test Description");
-        eventResponseDTO.setEventDate(eventDate);
-        eventResponseDTO.setLocation("Test Location");
-        eventResponseDTO.setPrice(new BigDecimal("100.00"));
-        eventResponseDTO.setOrganizer(userSummaryDTO);
-        eventResponseDTO.setCreatedAt(event.getCreatedAt());
-        eventResponseDTO.setUpdatedAt(event.getUpdatedAt());
+        expectedResponseDTO = new EventResponseDTO();
+        expectedResponseDTO.setId(eventId);
+        expectedResponseDTO.setTitle(updateDTO.getTitle());
+        expectedResponseDTO.setDescription(updateDTO.getDescription());
+        expectedResponseDTO.setLocation(updateDTO.getLocation());
+        expectedResponseDTO.setPrice(updateDTO.getPrice());
+        expectedResponseDTO.setEventDate(updateDTO.getEventDate());
     }
 
     @Test
-    void createEvent_ShouldReturnEventResponseDTO() {
-        // Arrange
-        when(eventRepository.save(any(Event.class))).thenReturn(event);
-        when(modelMapper.map(any(Event.class), eq(EventResponseDTO.class))).thenReturn(eventResponseDTO);
+    void testCreateEvent_Success() {
+        Event mapped = new Event();
+        mapped.setTitle("New Event");
+        mapped.setEventDate(createDTO.getEventDate());
 
-        // Act
-        EventResponseDTO result = eventService.createEvent(eventCreateDTO, organizer);
+        when(modelMapper.map(createDTO, Event.class)).thenReturn(mapped);
+        when(eventRepository.save(any())).thenAnswer(inv -> {
+            Event e = inv.getArgument(0);
+            e.setId(999L);
+            return e;
+        });
 
-        // Assert
+        EventResponseDTO responseDto = new EventResponseDTO();
+        responseDto.setId(999L);
+        responseDto.setTitle("New Event");
+        when(modelMapper.map(any(Event.class), eq(EventResponseDTO.class))).thenReturn(responseDto);
+
+        EventResponseDTO result = eventService.createEvent(createDTO, organizer);
+
         assertNotNull(result);
-        assertEquals(eventResponseDTO.getId(), result.getId());
-        assertEquals(eventResponseDTO.getTitle(), result.getTitle());
-        verify(eventRepository, times(1)).save(any(Event.class));
+        assertEquals(999L, result.getId());
+        verify(eventRepository).save(any(Event.class));
     }
 
     @Test
-    void getAllEvents_ShouldReturnListOfActiveEvents() {
-        // Arrange
-        List<Event> events = Arrays.asList(event);
-        when(eventRepository.findByIsActiveTrue()).thenReturn(events);
-        when(modelMapper.map(any(Event.class), eq(EventResponseDTO.class))).thenReturn(eventResponseDTO);
+    void testGetAllActiveEvents() {
+        when(eventRepository.findByIsActiveTrue()).thenReturn(List.of(testEvent));
+        EventResponseDTO dto = new EventResponseDTO();
+        dto.setId(testEvent.getId());
+        when(modelMapper.map(testEvent, EventResponseDTO.class)).thenReturn(dto);
 
-        // Act
-        List<EventResponseDTO> result = eventService.getAllEvents();
+        List<EventResponseDTO> result = eventService.getAllActiveEvents();
 
-        // Assert
-        assertNotNull(result);
         assertEquals(1, result.size());
-        assertEquals(eventResponseDTO.getId(), result.get(0).getId());
-        verify(eventRepository, times(1)).findByIsActiveTrue();
+        assertEquals(100L, result.get(0).getId());
+        verify(eventRepository).findByIsActiveTrue();
     }
 
     @Test
-    void getEventById_WithValidId_ShouldReturnEventResponseDTO() {
-        // Arrange
-        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
-        when(modelMapper.map(any(Event.class), eq(EventResponseDTO.class))).thenReturn(eventResponseDTO);
+    void testGetActiveEventById_Success() {
+        when(eventRepository.findByIdAndIsActiveTrue(100L))
+                .thenReturn(Optional.of(testEvent));
+        EventResponseDTO dto = new EventResponseDTO();
+        dto.setId(100L);
+        when(modelMapper.map(testEvent, EventResponseDTO.class)).thenReturn(dto);
 
-        // Act
-        EventResponseDTO result = eventService.getEventById(1L);
-
-        // Assert
-        assertNotNull(result);
-        assertEquals(eventResponseDTO.getId(), result.getId());
-        verify(eventRepository, times(1)).findById(1L);
+        EventResponseDTO result = eventService.getActiveEventById(100L);
+        assertEquals(100L, result.getId());
+        verify(eventRepository).findByIdAndIsActiveTrue(100L);
     }
 
     @Test
-    void getEventById_WithInvalidId_ShouldThrowException() {
-        // Arrange
-        when(eventRepository.findById(999L)).thenReturn(Optional.empty());
+    void testGetActiveEventById_NotFound() {
+        when(eventRepository.findByIdAndIsActiveTrue(200L))
+                .thenReturn(Optional.empty());
 
-        // Act & Assert
-        assertThrows(EventNotFoundException.class, () -> {
-            eventService.getEventById(999L);
-        });
-        verify(eventRepository, times(1)).findById(999L);
+        assertThrows(EventNotFoundException.class,
+                () -> eventService.getActiveEventById(200L));
     }
 
     @Test
-    void getEventsByOrganizer_ShouldReturnListOfOrganizerEvents() {
-        // Arrange
-        List<Event> events = Arrays.asList(event);
-        when(eventRepository.findByOrganizerAndIsActiveTrue(organizer)).thenReturn(events);
-        when(modelMapper.map(any(Event.class), eq(EventResponseDTO.class))).thenReturn(eventResponseDTO);
+    void testGetActiveEventsByOrganizer() {
+        when(eventRepository.findByOrganizerAndIsActiveTrue(organizer))
+                .thenReturn(List.of(testEvent));
+        EventResponseDTO dto = new EventResponseDTO();
+        dto.setId(testEvent.getId());
+        when(modelMapper.map(testEvent, EventResponseDTO.class)).thenReturn(dto);
 
-        // Act
-        List<EventResponseDTO> result = eventService.getEventsByOrganizer(organizer);
-
-        // Assert
-        assertNotNull(result);
+        var result = eventService.getActiveEventsByOrganizer(organizer);
         assertEquals(1, result.size());
-        assertEquals(eventResponseDTO.getId(), result.get(0).getId());
-        verify(eventRepository, times(1)).findByOrganizerAndIsActiveTrue(organizer);
+        verify(eventRepository).findByOrganizerAndIsActiveTrue(organizer);
     }
 
     @Test
-    void updateEvent_WithValidIdAndOwner_ShouldReturnUpdatedEvent() {
-        // Arrange
-        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
-        when(eventRepository.save(any(Event.class))).thenReturn(event);
-        when(modelMapper.map(any(Event.class), eq(EventResponseDTO.class))).thenReturn(eventResponseDTO);
+    void testUpdateEvent_Success() {
 
-        // Act
-        EventResponseDTO result = eventService.updateEvent(1L, eventUpdateDTO, organizer);
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(testEvent));
 
-        // Assert
-        assertNotNull(result);
-        verify(eventRepository, times(1)).findById(1L);
-        verify(eventRepository, times(1)).save(any(Event.class));
+        doAnswer(invocation -> {
+            EventUpdateDTO dtoArg = invocation.getArgument(0);
+            Event eventArg = invocation.getArgument(1);
+            eventArg.setTitle(dtoArg.getTitle());
+            eventArg.setDescription(dtoArg.getDescription());
+            eventArg.setLocation(dtoArg.getLocation());
+            eventArg.setPrice(dtoArg.getPrice());
+            eventArg.setEventDate(dtoArg.getEventDate());
+            return null;
+        }).when(modelMapper).map(eq(updateDTO), eq(testEvent));
+
+        when(eventRepository.save(any(Event.class))).thenReturn(eventStateAfterSave);
+
+        when(modelMapper.map(eq(eventStateAfterSave), eq(EventResponseDTO.class))).thenReturn(expectedResponseDTO);
+
+        EventResponseDTO actualResponseDTO = eventService.updateEvent(eventId, updateDTO, organizer);
+
+        assertNotNull(actualResponseDTO, "Response DTO tidak boleh null.");
+        assertEquals(expectedResponseDTO.getId(), actualResponseDTO.getId(), "ID Event pada response tidak cocok.");
+        assertEquals(expectedResponseDTO.getTitle(), actualResponseDTO.getTitle(), "Judul Event pada response tidak cocok.");
+        assertEquals(expectedResponseDTO.getDescription(), actualResponseDTO.getDescription(), "Deskripsi Event pada response tidak cocok.");
+        assertSame(expectedResponseDTO, actualResponseDTO, "Instance DTO yang dikembalikan seharusnya sama dengan yang dari stub.");
+
+        verify(eventRepository, times(1)).findById(eq(eventId));
+        verify(modelMapper, times(1)).map(eq(updateDTO), eq(testEvent));
+        verify(eventRepository, times(1)).save(eventArgumentCaptor.capture());
+
+        Event capturedEventForSave = eventArgumentCaptor.getValue();
+        assertNotNull(capturedEventForSave, "Event yang di-pass ke save tidak boleh null.");
+        assertEquals(updateDTO.getTitle(), capturedEventForSave.getTitle(), "Judul event yang di-save tidak terupdate.");
+        assertEquals(updateDTO.getDescription(), capturedEventForSave.getDescription(), "Deskripsi event yang di-save tidak terupdate.");
+        assertSame(testEvent, capturedEventForSave, "Instance event yang di-save seharusnya adalah instance yang sama yang diambil dari findById dan dimodifikasi.");
+
+
+        verify(modelMapper, times(1)).map(eq(eventStateAfterSave), eq(EventResponseDTO.class));
+    }
+    
+    @Test
+    void testCancelEvent_Success() {
+        when(eventRepository.findById(100L)).thenReturn(Optional.of(testEvent));
+        when(eventRepository.save(testEvent)).thenReturn(testEvent);
+
+        String msg = eventService.cancelEvent(100L, organizer);
+        assertTrue(testEvent.isCancelled());
+        assertEquals("Event with ID 100 has been canceled successfully", msg);
     }
 
     @Test
-    void updateEvent_WithUnauthorizedUser_ShouldThrowException() {
-        // Arrange
-        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
+    void testDeleteEvent_Success() {
+        testEvent.setCancelled(true);
+        when(eventRepository.findById(100L)).thenReturn(Optional.of(testEvent));
+        when(eventRepository.save(testEvent)).thenReturn(testEvent);
 
-        // Act & Assert
-        assertThrows(UnauthorizedAccessException.class, () -> {
-            eventService.updateEvent(1L, eventUpdateDTO, anotherUser);
-        });
-        verify(eventRepository, times(1)).findById(1L);
-        verify(eventRepository, never()).save(any(Event.class));
+        String msg = eventService.deleteEvent(100L, organizer);
+        assertFalse(testEvent.isActive());
+        assertEquals("Event with ID 100 has been deleted successfully", msg);
     }
 
     @Test
-    void updateEvent_WithEventTooClose_ShouldThrowException() {
-        // Arrange
-        Event soonEvent = Event.builder()
-                .id(2L)
-                .title("Soon Event")
-                .eventDate(LocalDateTime.now().plusHours(12))
-                .organizer(organizer)
-                .build();
-        when(eventRepository.findById(2L)).thenReturn(Optional.of(soonEvent));
+    void testDeleteEvent_NotCancelledOrPast() {
+        when(eventRepository.findById(100L)).thenReturn(Optional.of(testEvent));
 
-        // Act & Assert
-        assertThrows(IllegalStateException.class, () -> {
-            eventService.updateEvent(2L, eventUpdateDTO, organizer);
-        });
-        verify(eventRepository, times(1)).findById(2L);
-        verify(eventRepository, never()).save(any(Event.class));
+        assertThrows(IllegalStateException.class, () ->
+                eventService.deleteEvent(100L, organizer));
     }
 
     @Test
-    void deleteEvent_WithValidIdAndOwner_ShouldSoftDeleteEvent() {
-        // Arrange
-        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
-        
-        // Act
-        eventService.deleteEvent(1L, organizer);
+    void testOwnershipViolation() {
+        User another = new User();
+        another.setId(999L);
+        when(eventRepository.findById(100L)).thenReturn(Optional.of(testEvent));
 
-        // Assert
-        assertFalse(event.isActive());
-        verify(eventRepository, times(1)).findById(1L);
-        verify(eventRepository, times(1)).save(event);
-    }
+        assertThrows(UnauthorizedAccessException.class, () ->
+                eventService.cancelEvent(100L, another));
 
-    @Test
-    void deleteEvent_WithUnauthorizedUser_ShouldThrowException() {
-        // Arrange
-        when(eventRepository.findById(1L)).thenReturn(Optional.of(event));
-
-        // Act & Assert
-        assertThrows(UnauthorizedAccessException.class, () -> {
-            eventService.deleteEvent(1L, anotherUser);
-        });
-        verify(eventRepository, times(1)).findById(1L);
-        verify(eventRepository, never()).save(any(Event.class));
+        verify(eventRepository, never()).save(any());
     }
 }
