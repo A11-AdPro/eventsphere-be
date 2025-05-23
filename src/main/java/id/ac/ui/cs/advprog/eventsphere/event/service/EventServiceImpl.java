@@ -14,10 +14,12 @@ import lombok.RequiredArgsConstructor;
 import org.modelmapper.ModelMapper;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.scheduling.annotation.Async;
 
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.stream.Collectors;
+import java.util.concurrent.CompletableFuture;
 
 @Service
 @RequiredArgsConstructor
@@ -112,6 +114,83 @@ public class EventServiceImpl implements EventService {
         event.setActive(false);
         eventRepository.save(event);
         return "Event with ID " + id + " has been deleted successfully";
+    }
+
+    @Async
+    @Transactional
+    public CompletableFuture<EventResponseDTO> createEventAsync(EventCreateDTO eventCreateDTO, User organizer) {
+        try {
+            EventResponseDTO result = createEvent(eventCreateDTO, organizer);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    
+    @Async
+    @Transactional(readOnly = true)
+    public CompletableFuture<List<EventResponseDTO>> getAllActiveEventsAsync() {
+        try {
+            List<EventResponseDTO> result = getAllActiveEvents();
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    
+    @Async
+    @Transactional(readOnly = true)
+    public CompletableFuture<EventResponseDTO> getActiveEventByIdAsync(Long id) {
+        try {
+            EventResponseDTO result = getActiveEventById(id);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    
+    @Async
+    @Transactional(readOnly = true)
+    public CompletableFuture<List<EventResponseDTO>> getActiveEventsByOrganizerAsync(User organizer) {
+        try {
+            List<EventResponseDTO> result = getActiveEventsByOrganizer(organizer);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+    
+    @Async
+    @Transactional
+    public CompletableFuture<EventResponseDTO> updateEventAsync(Long id, EventUpdateDTO eventUpdateDTO, User organizer) {
+        try {
+            EventResponseDTO result = updateEvent(id, eventUpdateDTO, organizer);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    @Async
+    @Transactional
+    public CompletableFuture<String> cancelEventAsync(Long id, User organizer) {
+        try {
+            String result = cancelEvent(id, organizer);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
+    }
+
+    @Async
+    @Transactional
+    public CompletableFuture<String> deleteEventAsync(Long id, User organizer) {
+        try {
+            String result = deleteEvent(id, organizer);
+            return CompletableFuture.completedFuture(result);
+        } catch (Exception e) {
+            return CompletableFuture.failedFuture(e);
+        }
     }
     
     // Helper methods
