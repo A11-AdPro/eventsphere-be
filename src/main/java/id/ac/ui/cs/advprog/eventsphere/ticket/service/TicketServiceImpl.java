@@ -5,105 +5,114 @@ import id.ac.ui.cs.advprog.eventsphere.ticket.repository.TicketRepository;
 import id.ac.ui.cs.advprog.eventsphere.ticket.exception.TicketNotFoundException;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketRequest;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
-import org.springframework.scheduling.annotation.Async;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
+import id.ac.ui.cs.advprog.eventsphere.event.repository.EventRepository;
+import id.ac.ui.cs.advprog.eventsphere.event.model.Event;
+import id.ac.ui.cs.advprog.eventsphere.event.exception.EventNotFoundException;
+import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
-
 import java.util.List;
-import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class TicketServiceImpl implements TicketService {
     private final TicketRepository repo;
+    private final EventRepository eventRepository;
 
-    public TicketServiceImpl(TicketRepository repo) {
-        this.repo = repo;
+    @Override
+    public TicketResponse addTicket(TicketRequest request, User organizer) {
+        if (!Role.ORGANIZER.equals(organizer.getRole())) {
+            throw new RuntimeException("Hanya organizer yang dapat menambahkan tiket.");
+        }
+
+        Event event = eventRepository.findById(request.getEventId())
+                .orElseThrow(() -> new RuntimeException("Event tidak ditemukan"));
+
+        Ticket ticket = Ticket.builder()
+                .name(request.getName())
+                .price(request.getPrice())
+                .quota(request.getQuota())
+                .category(request.getCategory())
+                .event(event)
+                .sold(0)
+                .deleted(false)
+                .build();
+
+        return toResponse(repo.save(ticket));
     }
 
-    @Async
     @Override
-    public CompletableFuture<TicketResponse> addTicket(TicketRequest request) {
-        Ticket ticket = new Ticket(null, request.name, request.price, request.quota, request.category, request.eventId);
-        return CompletableFuture.completedFuture(toResponse(repo.save(ticket)));
-    }
+    public TicketResponse updateTicket(Long id, TicketRequest request, User organizer) {
+        if (!Role.ORGANIZER.equals(organizer.getRole())) {
+            throw new RuntimeException("Hanya organizer yang dapat mengupdate tiket.");
+        }
 
-    @Async
-    @Override
-    public CompletableFuture<TicketResponse> updateTicket(Long id, TicketRequest request) {
         Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
-        ticket.setName(request.name);
-        ticket.setCategory(request.category);
-        ticket.setEventId(request.eventId);
-        ticket.updateDetails(request.price, request.quota);
-        return CompletableFuture.completedFuture(toResponse(repo.save(ticket)));
+        ticket.setName(request.getName());
+        ticket.setCategory(request.getCategory());
+        Event event = eventRepository.findById(request.getEventId())
+                .orElseThrow(() -> new EventNotFoundException("Event not found with ID: " + request.getEventId()));
+        ticket.setEvent(event);
+        ticket.updateDetails(request.getPrice(), request.getQuota());
+
+        return toResponse(repo.save(ticket));
     }
 
-    @Async
     @Override
-    public CompletableFuture<List<TicketResponse>> getAvailableTickets() {
-        List<TicketResponse> result = repo.findAll()
+    public List<TicketResponse> getAvailableTickets() {
+        return repo.findAll()
                 .stream()
                 .map(this::toResponse)
                 .collect(Collectors.toList());
-        return CompletableFuture.completedFuture(result);
     }
 
     @Override
     public TicketResponse purchaseTicket(Long id) {
         Ticket ticket = repo.findById(id)
-                .orElseThrow(() -> new RuntimeException("Ticket not found"));
+                .orElseThrow(() -> new RuntimeException("Ticket tidak ditemukan"));
 
         if (ticket.isSoldOut()) {
-            throw new RuntimeException("Ticket is sold out");
+            throw new RuntimeException("Tiket sudah habis terjual.");
         }
 
         ticket.purchase();
-        boolean soldOutStatus = ticket.isSoldOut();
-        Ticket updatedTicket = repo.save(ticket);
-
-        return new TicketResponse.Builder()
-                .id(updatedTicket.getId())
-                .name(updatedTicket.getName())
-                .price(updatedTicket.getPrice())
-                .quota(ticket.getQuota())
-                .category(updatedTicket.getCategory())
-                .soldOut(soldOutStatus)
-                .eventId(updatedTicket.getEventId())
-                .build();
+        return toResponse(repo.save(ticket));
     }
 
-    @Async
     @Override
-    public CompletableFuture<Void> deleteTicket(Long ticketId) {
-        Ticket ticket = repo.findById(ticketId)
-                .orElseThrow(() -> new TicketNotFoundException());
+    public String deleteTicket(Long id, User admin) {
+        if (!Role.ADMIN.equals(admin.getRole())) {
+            throw new RuntimeException("Hanya admin yang dapat menghapus tiket.");
+        }
+
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(TicketNotFoundException::new);
         repo.delete(ticket);
-        return CompletableFuture.completedFuture(null);
+
+        return "Tiket dengan ID " + id + " berhasil dihapus.";
     }
 
     @Override
     public TicketResponse getTicketById(Long id) {
         Ticket ticket = repo.findById(id)
-                .orElseThrow(() -> new TicketNotFoundException());
+                .orElseThrow(TicketNotFoundException::new);
         return toResponse(ticket);
     }
 
-    private TicketResponse toResponse(Ticket t) {
+    private TicketResponse toResponse(Ticket ticket) {
         return new TicketResponse.Builder()
-                .id(t.getId())
-                .name(t.getName())
-                .price(t.getPrice())
-                .quota(t.getQuota())
-                .category(t.getCategory())
-                .eventId(t.getEventId())
-                .soldOut(t.isSoldOut())
+                .id(ticket.getId())
+                .name(ticket.getName())
+                .price(ticket.getPrice())
+                .quota(ticket.getQuota())
+                .category(ticket.getCategory())
+                .eventId(ticket.getEventId())
+                .soldOut(ticket.isSoldOut())
                 .build();
     }
 }
-
-
-
-
 
 
 
