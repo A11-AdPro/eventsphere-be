@@ -5,9 +5,11 @@ import id.ac.ui.cs.advprog.eventsphere.ticket.repository.TicketRepository;
 import id.ac.ui.cs.advprog.eventsphere.ticket.exception.TicketNotFoundException;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketRequest;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
+import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 
 @Service
@@ -18,25 +20,32 @@ public class TicketServiceImpl implements TicketService {
         this.repo = repo;
     }
 
+    @Async
     @Override
-    public TicketResponse addTicket(TicketRequest request) {
+    public CompletableFuture<TicketResponse> addTicket(TicketRequest request) {
         Ticket ticket = new Ticket(null, request.name, request.price, request.quota, request.category, request.eventId);
-        return toResponse(repo.save(ticket));
+        return CompletableFuture.completedFuture(toResponse(repo.save(ticket)));
     }
 
+    @Async
     @Override
-    public TicketResponse updateTicket(Long id, TicketRequest request) {
+    public CompletableFuture<TicketResponse> updateTicket(Long id, TicketRequest request) {
         Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
         ticket.setName(request.name);
         ticket.setCategory(request.category);
         ticket.setEventId(request.eventId);
         ticket.updateDetails(request.price, request.quota);
-        return toResponse(repo.save(ticket));
+        return CompletableFuture.completedFuture(toResponse(repo.save(ticket)));
     }
 
+    @Async
     @Override
-    public List<TicketResponse> getAvailableTickets() {
-        return repo.findAll().stream().map(this::toResponse).collect(Collectors.toList());
+    public CompletableFuture<List<TicketResponse>> getAvailableTickets() {
+        List<TicketResponse> result = repo.findAll()
+                .stream()
+                .map(this::toResponse)
+                .collect(Collectors.toList());
+        return CompletableFuture.completedFuture(result);
     }
 
     @Override
@@ -44,38 +53,39 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Ticket not found"));
 
-        // Periksa apakah tiket sudah sold out
         if (ticket.isSoldOut()) {
             throw new RuntimeException("Ticket is sold out");
         }
 
-        // Mengurangi kuota dengan memanggil metode purchase
-        ticket.purchase(); // Ini akan menambah sold dan memeriksa apakah sold >= quota
-
-        // Cek apakah sold sudah mencapai quota
+        ticket.purchase();
         boolean soldOutStatus = ticket.isSoldOut();
-
-        // Simpan perubahan tiket
         Ticket updatedTicket = repo.save(ticket);
 
-        // Kembalikan response dengan detail tiket terbaru
         return new TicketResponse.Builder()
                 .id(updatedTicket.getId())
                 .name(updatedTicket.getName())
                 .price(updatedTicket.getPrice())
-                .quota(ticket.getQuota())  // Kuota yang terupdate
+                .quota(ticket.getQuota())
                 .category(updatedTicket.getCategory())
-                .soldOut(soldOutStatus)  // Status soldOut yang terupdate
+                .soldOut(soldOutStatus)
                 .eventId(updatedTicket.getEventId())
                 .build();
     }
 
-
+    @Async
     @Override
-    public void deleteTicket(Long ticketId) {
+    public CompletableFuture<Void> deleteTicket(Long ticketId) {
         Ticket ticket = repo.findById(ticketId)
                 .orElseThrow(() -> new TicketNotFoundException());
         repo.delete(ticket);
+        return CompletableFuture.completedFuture(null);
+    }
+
+    @Override
+    public TicketResponse getTicketById(Long id) {
+        Ticket ticket = repo.findById(id)
+                .orElseThrow(() -> new TicketNotFoundException());
+        return toResponse(ticket);
     }
 
     private TicketResponse toResponse(Ticket t) {
@@ -85,18 +95,16 @@ public class TicketServiceImpl implements TicketService {
                 .price(t.getPrice())
                 .quota(t.getQuota())
                 .category(t.getCategory())
-                .eventId(t.getEventId()) // ✅ ini wajib agar test berhasil
+                .eventId(t.getEventId())
                 .soldOut(t.isSoldOut())
                 .build();
     }
-
-    @Override
-    public TicketResponse getTicketById(Long id) {
-        Ticket ticket = repo.findById(id)
-                .orElseThrow(() -> new TicketNotFoundException());
-        return toResponse(ticket);
-    }
 }
+
+
+
+
+
 
 
 
