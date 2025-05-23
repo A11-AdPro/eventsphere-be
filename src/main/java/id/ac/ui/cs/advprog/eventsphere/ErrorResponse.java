@@ -1,7 +1,6 @@
-package id.ac.ui.cs.advprog.eventsphere.report.exception;
+package id.ac.ui.cs.advprog.eventsphere;
 
 import lombok.Data;
-
 import java.time.LocalDateTime;
 
 @Data
