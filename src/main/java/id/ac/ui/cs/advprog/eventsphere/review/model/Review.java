@@ -1,5 +1,6 @@
 package id.ac.ui.cs.advprog.eventsphere.review.model;
 
+import com.fasterxml.jackson.annotation.JsonManagedReference; // Added import
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -44,7 +45,8 @@ public class Review {
     @Column(nullable = false)
     private Boolean isVisible = true;
 
-    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER) // Ensured EAGER fetch
+    @JsonManagedReference // Added annotation
     private List<ReviewImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
