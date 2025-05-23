@@ -71,4 +71,10 @@ public class OrganizerReportController {
         ReportResponseDTO updatedReport = reportService.updateReportStatus(id, status);
         return ResponseEntity.ok(updatedReport);
     }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Void> deleteReport(@PathVariable UUID id) {
+        reportService.deleteReport(id);
+        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+    }
 }

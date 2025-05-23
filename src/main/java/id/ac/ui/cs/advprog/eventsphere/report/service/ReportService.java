@@ -13,6 +13,8 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportRepository;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepository;
 import jakarta.persistence.EntityNotFoundException;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -22,6 +24,8 @@ import java.util.stream.Collectors;
 
 @Service
 public class ReportService {
+
+    private static final Logger logger = LoggerFactory.getLogger(ReportService.class);
 
     private final ReportRepository reportRepository;
     private final ReportResponseRepository responseRepository;
@@ -41,6 +45,9 @@ public class ReportService {
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
+        logger.info("Creating new report for user: {} - THREAD: {}",
+                createRequest.getUserId(), Thread.currentThread().getName());
+
         // Ambil email pengguna dari repository jika tidak disediakan
         String userEmail = createRequest.getUserEmail();
         if (userEmail == null || userEmail.isEmpty()) {
@@ -62,9 +69,15 @@ public class ReportService {
 
         // Menyimpan laporan
         Report savedReport = reportRepository.save(report);
+        logger.info("Report saved with ID: {} - THREAD: {}",
+                savedReport.getId(), Thread.currentThread().getName());
 
-        // Memberi tahu admin tentang laporan baru
+        // Memberi tahu admin tentang laporan baru - ASYNC
+        logger.info("Starting async admin notification - THREAD: {}", Thread.currentThread().getName());
         notificationService.notifyNewReport(savedReport);
+
+        logger.info("Report creation completed, async processing started - THREAD: {}",
+                Thread.currentThread().getName());
 
         return convertToResponseDTO(savedReport);
     }
@@ -101,6 +114,9 @@ public class ReportService {
     }
 
     public ReportResponseDTO updateReportStatus(UUID reportId, ReportStatus newStatus) {
+        logger.info("Updating report status to {} for report: {} - THREAD: {}",
+                newStatus, reportId, Thread.currentThread().getName());
+
         Report report = findReportById(reportId);
 
         // Register observer if not already registered
@@ -108,17 +124,19 @@ public class ReportService {
             report.getObservers().add(notificationService);
         }
 
-        // Update the status
+        // Update the status - this will trigger async notification
         report.updateStatus(newStatus);
 
         // Save the updated report
         Report updatedReport = reportRepository.save(report);
+        logger.info("Report status updated successfully - THREAD: {}", Thread.currentThread().getName());
 
-        // Convert entity to response DTO
         return convertToResponseDTO(updatedReport);
     }
 
     public ReportCommentDTO addComment(UUID reportId, CreateReportCommentRequest commentRequest) {
+        logger.info("Adding comment to report: {} - THREAD: {}", reportId, Thread.currentThread().getName());
+
         Report report = findReportById(reportId);
 
         // Register observer if not already registered
@@ -133,7 +151,7 @@ public class ReportService {
         commentEntity.setResponderRole(commentRequest.getResponderRole());
         commentEntity.setMessage(commentRequest.getMessage());
 
-        // Add the comment to the report
+        // Add the comment to the report - this will trigger async notification
         report.addResponse(commentEntity);
 
         // Save the comment
@@ -145,15 +163,16 @@ public class ReportService {
             reportRepository.save(report);
         }
 
-        // Convert entity to DTO
+        logger.info("Comment added successfully - THREAD: {}", Thread.currentThread().getName());
         return convertToCommentDTO(savedComment);
     }
 
     public void deleteReport(UUID reportId) {
+        logger.info("Deleting report: {} - THREAD: {}", reportId, Thread.currentThread().getName());
         Report report = findReportById(reportId);
         reportRepository.delete(report);
+        logger.info("Report deleted successfully - THREAD: {}", Thread.currentThread().getName());
     }
-
 
     private Report findReportById(UUID id) {
         return reportRepository.findById(id)
