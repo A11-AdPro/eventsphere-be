@@ -1,6 +1,5 @@
 package id.ac.ui.cs.advprog.eventsphere.topup.controller;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.dto.PurchaseRequestDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TransactionDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.service.TransactionService;
@@ -10,6 +9,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
 
 @RestController
@@ -23,13 +23,18 @@ public class TransactionController {
         this.transactionService = transactionService;
     }
 
-    @PostMapping("/purchase")
-    public ResponseEntity<TopUpResponseDTO> processTicketPurchase(@RequestBody PurchaseRequestDTO purchaseRequest) {
+    @PostMapping("/purchase/ticket/{ticketId}")
+    public ResponseEntity<TopUpResponseDTO> purchaseTicket(@PathVariable Long ticketId) {
         try {
-            TopUpResponseDTO response = transactionService.processTicketPurchase(purchaseRequest);
+            TopUpResponseDTO response = transactionService.processTicketPurchaseById(ticketId);
             return ResponseEntity.ok(response);
         } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR).build();
+            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
+                    .body(TopUpResponseDTO.builder()
+                            .status("FAILED")
+                            .timestamp(LocalDateTime.now())
+                            .message(e.getMessage())
+                            .build());
         }
     }
 

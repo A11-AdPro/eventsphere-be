@@ -18,4 +18,5 @@ public class TopUpResponseDTO {
     private int newBalance;
     private LocalDateTime timestamp;
     private String status;
+    private String message;
 }

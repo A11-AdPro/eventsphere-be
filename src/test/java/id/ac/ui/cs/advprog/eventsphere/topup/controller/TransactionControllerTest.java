@@ -1,6 +1,5 @@
 package id.ac.ui.cs.advprog.eventsphere.topup.controller;
 
-import id.ac.ui.cs.advprog.eventsphere.topup.dto.PurchaseRequestDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TransactionDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.service.TransactionService;
@@ -19,7 +18,7 @@ import java.util.Arrays;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.anyLong;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
@@ -31,19 +30,12 @@ public class TransactionControllerTest {
     @InjectMocks
     private TransactionController transactionController;
     
-    private PurchaseRequestDTO purchaseRequest;
     private TopUpResponseDTO purchaseResponse;
     private List<TransactionDTO> transactions;
     private TransactionDTO transactionDTO;
     
     @BeforeEach
-    public void setUp() {
-        purchaseRequest = PurchaseRequestDTO.builder()
-                .eventId("event-123")
-                .amount(50000)
-                .description("Purchase ticket")
-                .build();
-        
+    public void setUp() {        
         purchaseResponse = TopUpResponseDTO.builder()
                 .transactionId("transaction-123")
                 .userId(1L)
@@ -69,28 +61,32 @@ public class TransactionControllerTest {
     }
     
     @Test
-    @DisplayName("Should process ticket purchase successfully")
-    public void testProcessTicketPurchase() {
-        when(transactionService.processTicketPurchase(any(PurchaseRequestDTO.class))).thenReturn(purchaseResponse);
+    @DisplayName("Should process ticket purchase by ID successfully")
+    public void testPurchaseTicket() {
+        when(transactionService.processTicketPurchaseById(anyLong())).thenReturn(purchaseResponse);
         
-        ResponseEntity<TopUpResponseDTO> response = transactionController.processTicketPurchase(purchaseRequest);
+        ResponseEntity<TopUpResponseDTO> response = transactionController.purchaseTicket(1L);
         
         assertNotNull(response);
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(purchaseResponse, response.getBody());
+        
+        verify(transactionService).processTicketPurchaseById(1L);
     }
     
     @Test
-    @DisplayName("Should handle Exception in processTicketPurchase")
-    public void testProcessTicketPurchaseException() {
-        when(transactionService.processTicketPurchase(any(PurchaseRequestDTO.class)))
+    @DisplayName("Should handle Exception in purchaseTicket")
+    public void testPurchaseTicketException() {
+        when(transactionService.processTicketPurchaseById(anyLong()))
                 .thenThrow(new RuntimeException("Some error"));
         
-        ResponseEntity<TopUpResponseDTO> response = transactionController.processTicketPurchase(purchaseRequest);
+        ResponseEntity<TopUpResponseDTO> response = transactionController.purchaseTicket(1L);
         
         assertNotNull(response);
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertNull(response.getBody());
+        assertNotNull(response.getBody());
+        assertEquals("FAILED", response.getBody().getStatus());
+        assertEquals("Some error", response.getBody().getMessage());
     }
     
     @Test
