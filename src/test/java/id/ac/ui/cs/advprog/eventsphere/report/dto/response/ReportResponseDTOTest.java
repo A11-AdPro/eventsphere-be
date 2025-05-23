@@ -55,6 +55,6 @@ public class ReportResponseDTOTest {
         assertEquals(now, dto.getUpdatedAt());
         assertEquals(comments, dto.getComments());
         assertEquals(1, dto.getComments().size());
-        assertEquals("Test comment", dto.getComments().get(0).getMessage());
+        assertEquals("Test comment", dto.getComments().getFirst().getMessage());
     }
 }

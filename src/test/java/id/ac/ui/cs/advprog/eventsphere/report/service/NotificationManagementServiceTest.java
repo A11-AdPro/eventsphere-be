@@ -8,7 +8,6 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
-import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
@@ -181,9 +180,7 @@ public class NotificationManagementServiceTest {
         when(notificationRepository.findById(notificationId)).thenReturn(Optional.empty());
 
         // Act & Assert
-        assertThrows(EntityNotFoundException.class, () -> {
-            notificationService.markNotificationAsRead(notificationId);
-        });
+        assertThrows(EntityNotFoundException.class, () -> notificationService.markNotificationAsRead(notificationId));
 
         verify(notificationRepository).findById(notificationId);
         verify(notificationRepository, never()).save(any(Notification.class));
@@ -263,9 +260,7 @@ public class NotificationManagementServiceTest {
         when(notificationRepository.existsById(notificationId)).thenReturn(false);
 
         // Act & Assert
-        assertThrows(EntityNotFoundException.class, () -> {
-            notificationService.deleteNotification(notificationId);
-        });
+        assertThrows(EntityNotFoundException.class, () -> notificationService.deleteNotification(notificationId));
 
         verify(notificationRepository).existsById(notificationId);
         verify(notificationRepository, never()).deleteById(any(UUID.class));

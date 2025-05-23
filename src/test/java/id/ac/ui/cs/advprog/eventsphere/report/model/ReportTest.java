@@ -4,7 +4,6 @@ import id.ac.ui.cs.advprog.eventsphere.report.observer.ReportObserver;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import java.time.LocalDateTime;
-import java.util.ArrayList;
 import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -105,7 +104,7 @@ public class ReportTest {
 
         // Assert
         assertEquals(1, report.getResponses().size());
-        assertEquals(response, report.getResponses().get(0));
+        assertEquals(response, report.getResponses().getFirst());
         assertEquals(report, response.getReport());
 
         verify(mockObserver).onResponseAdded(report, response);

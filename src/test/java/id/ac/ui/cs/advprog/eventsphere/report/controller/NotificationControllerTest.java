@@ -5,7 +5,6 @@ import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.service.AuthService;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.response.NotificationDTO;
 import id.ac.ui.cs.advprog.eventsphere.report.service.NotificationManagementService;
-import com.fasterxml.jackson.databind.ObjectMapper;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -13,7 +12,6 @@ import org.junit.jupiter.api.DisplayName;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
@@ -22,7 +20,6 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.UUID;
 
-import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.Mockito.*;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.*;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
@@ -40,13 +37,10 @@ public class NotificationControllerTest {
     private NotificationController notificationController;
 
     private MockMvc mockMvc;
-    private ObjectMapper objectMapper;
     private User regularUser;
-    private User adminUser;
 
     @BeforeEach
     public void setUp() {
-        objectMapper = new ObjectMapper();
         mockMvc = MockMvcBuilders.standaloneSetup(notificationController).build();
 
         // Setup mock users
@@ -55,7 +49,7 @@ public class NotificationControllerTest {
         regularUser.setEmail("user@example.com");
         regularUser.setRole(Role.ATTENDEE);
 
-        adminUser = new User();
+        User adminUser = new User();
         adminUser.setId(2L);
         adminUser.setEmail("admin@example.com");
         adminUser.setRole(Role.ADMIN);

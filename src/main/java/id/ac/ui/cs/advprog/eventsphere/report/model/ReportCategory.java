@@ -1,5 +1,8 @@
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
+import lombok.Getter;
+
+@Getter
 public enum ReportCategory {
     PAYMENT("Payment Issue"),
     TICKET("Ticket Issue"),
@@ -12,7 +15,4 @@ public enum ReportCategory {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

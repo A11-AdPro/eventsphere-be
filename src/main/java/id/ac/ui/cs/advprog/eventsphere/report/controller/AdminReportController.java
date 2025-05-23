@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -66,7 +65,7 @@ public class AdminReportController {
     }
 
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> deleteReport(@PathVariable UUID id) throws IOException {
+    public ResponseEntity<Void> deleteReport(@PathVariable UUID id) {
         reportService.deleteReport(id);
         return new ResponseEntity<>(HttpStatus.NO_CONTENT);
     }

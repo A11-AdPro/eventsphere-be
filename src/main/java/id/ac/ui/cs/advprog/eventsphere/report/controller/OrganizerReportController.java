@@ -55,8 +55,15 @@ public class OrganizerReportController {
             @RequestBody CreateReportCommentRequest commentRequest) {
 
         User currentUser = authService.getCurrentUser();
+
+        ReportResponseDTO report = reportService.getReportById(reportId);
+        if (!report.getUserEmail().equals(currentUser.getEmail())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         commentRequest.setResponderId(currentUser.getId());
         commentRequest.setResponderRole("ORGANIZER");
+        commentRequest.setResponderEmail(currentUser.getEmail());
 
         ReportCommentDTO comment = reportService.addComment(reportId, commentRequest);
         return new ResponseEntity<>(comment, HttpStatus.CREATED);

@@ -6,18 +6,16 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.test.context.TestPropertySource;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ActiveProfiles("test")
 public class ReportRepositoryTest {
 
     @Autowired
@@ -104,9 +102,9 @@ public class ReportRepositoryTest {
         assertEquals(1, progressReports.size());
         assertEquals(1, resolvedReports.size());
 
-        assertEquals(ReportCategory.PAYMENT, pendingReports.get(0).getCategory());
-        assertEquals(ReportCategory.TICKET, progressReports.get(0).getCategory());
-        assertEquals(ReportCategory.EVENT, resolvedReports.get(0).getCategory());
+        assertEquals(ReportCategory.PAYMENT, pendingReports.getFirst().getCategory());
+        assertEquals(ReportCategory.TICKET, progressReports.getFirst().getCategory());
+        assertEquals(ReportCategory.EVENT, resolvedReports.getFirst().getCategory());
     }
 
     @Test
@@ -160,8 +158,8 @@ public class ReportRepositoryTest {
         // Assert
         assertEquals(1, userPendingReports.size());
         assertEquals(1, userResolvedReports.size());
-        assertEquals(ReportCategory.PAYMENT, userPendingReports.get(0).getCategory());
-        assertEquals(ReportCategory.TICKET, userResolvedReports.get(0).getCategory());
+        assertEquals(ReportCategory.PAYMENT, userPendingReports.getFirst().getCategory());
+        assertEquals(ReportCategory.TICKET, userResolvedReports.getFirst().getCategory());
     }
 
     @Test
@@ -191,7 +189,7 @@ public class ReportRepositoryTest {
         // Assert
         assertEquals(1, userPendingReports.size());
         assertEquals(1, userResolvedReports.size());
-        assertEquals(ReportCategory.PAYMENT, userPendingReports.get(0).getCategory());
-        assertEquals(ReportCategory.TICKET, userResolvedReports.get(0).getCategory());
+        assertEquals(ReportCategory.PAYMENT, userPendingReports.getFirst().getCategory());
+        assertEquals(ReportCategory.TICKET, userResolvedReports.getFirst().getCategory());
     }
 }

@@ -1,5 +1,8 @@
 package id.ac.ui.cs.advprog.eventsphere.report.model;
 
+import lombok.Getter;
+
+@Getter
 public enum ReportStatus {
     PENDING("Pending"),
     ON_PROGRESS("On Progress"),
@@ -11,7 +14,4 @@ public enum ReportStatus {
         this.displayName = displayName;
     }
 
-    public String getDisplayName() {
-        return displayName;
-    }
 }

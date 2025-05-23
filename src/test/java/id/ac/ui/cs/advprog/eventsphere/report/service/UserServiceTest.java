@@ -113,7 +113,7 @@ public class UserServiceTest {
         // Assert
         assertNotNull(organizerEmails);
         assertEquals(1, organizerEmails.size());
-        assertEquals("organizer@example.com", organizerEmails.get(0));
+        assertEquals("organizer@example.com", organizerEmails.getFirst());
         verify(userRepository).findAll();
     }
 
@@ -168,7 +168,7 @@ public class UserServiceTest {
         // Assert
         assertNotNull(organizerIds);
         assertEquals(1, organizerIds.size());
-        assertEquals(1L, organizerIds.get(0));
+        assertEquals(1L, organizerIds.getFirst());
         verify(userRepository).findAll();
     }
 }

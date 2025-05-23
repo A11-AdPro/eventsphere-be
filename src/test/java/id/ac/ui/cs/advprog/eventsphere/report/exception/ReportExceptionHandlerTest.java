@@ -6,11 +6,13 @@ import org.junit.jupiter.api.DisplayName;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
+import java.util.Objects;
+
 import static org.junit.jupiter.api.Assertions.*;
 
-public class GlobalExceptionHandlerTest {
+public class ReportExceptionHandlerTest {
 
-    private GlobalExceptionHandler exceptionHandler = new GlobalExceptionHandler();
+    private final ReportExceptionHandler exceptionHandler = new ReportExceptionHandler();
 
     @Test
     @DisplayName("Menangani EntityNotFoundException dengan status 404 Not Found")
@@ -23,7 +25,7 @@ public class GlobalExceptionHandlerTest {
 
         // Assert
         assertEquals(HttpStatus.NOT_FOUND, response.getStatusCode());
-        assertEquals("Report not found with id: 123", response.getBody().getMessage());
+        assertEquals("Report not found with id: 123", Objects.requireNonNull(response.getBody()).getMessage());
         assertEquals("404", response.getBody().getErrorCode());
     }
 
@@ -38,7 +40,7 @@ public class GlobalExceptionHandlerTest {
 
         // Assert
         assertEquals(HttpStatus.BAD_REQUEST, response.getStatusCode());
-        assertEquals("Invalid report status", response.getBody().getMessage());
+        assertEquals("Invalid report status", Objects.requireNonNull(response.getBody()).getMessage());
         assertEquals("400", response.getBody().getErrorCode());
     }
 
@@ -53,7 +55,7 @@ public class GlobalExceptionHandlerTest {
 
         // Assert
         assertEquals(HttpStatus.INTERNAL_SERVER_ERROR, response.getStatusCode());
-        assertEquals("Unexpected error", response.getBody().getMessage());
+        assertEquals("Unexpected error", Objects.requireNonNull(response.getBody()).getMessage());
         assertEquals("500", response.getBody().getErrorCode());
     }
 }

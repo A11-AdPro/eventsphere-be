@@ -6,7 +6,7 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
-import java.util.UUID;
+
 import static org.mockito.Mockito.*;
 
 public class ReportObserverTest {

@@ -1,15 +1,22 @@
+
 package id.ac.ui.cs.advprog.eventsphere;
 
-import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.context.ApplicationContext;
+import org.springframework.test.context.ActiveProfiles;
+
+import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
-@Disabled("Disabled to prevent conflicts with other tests")
+@ActiveProfiles("test")
 class EventSphereApplicationTests {
+    @Autowired
+    private ApplicationContext applicationContext;
 
     @Test
     void contextLoads() {
-        // Will be skipped due to @Disabled
+        assertThat(applicationContext).isNotNull();
     }
 }

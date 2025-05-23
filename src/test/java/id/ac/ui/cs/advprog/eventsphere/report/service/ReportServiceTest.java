@@ -589,7 +589,7 @@ public class ReportServiceTest {
         assertNotNull(result.getComments());
         assertEquals(1, result.getComments().size());
 
-        ReportCommentDTO commentDTO = result.getComments().get(0);
+        ReportCommentDTO commentDTO = result.getComments().getFirst();
         assertEquals(commentId, commentDTO.getId());
         assertEquals(responderId, commentDTO.getResponderId());
         assertEquals(responderEmail, commentDTO.getResponderEmail());
@@ -649,7 +649,7 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(1, result.size());
-        assertEquals(longDescription.substring(0, 47) + "...", result.get(0).getShortDescription());
+        assertEquals(longDescription.substring(0, 47) + "...", result.getFirst().getShortDescription());
     }
 
     @Test
@@ -673,7 +673,7 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(1, result.size());
-        assertEquals(shortDescription, result.get(0).getShortDescription());
+        assertEquals(shortDescription, result.getFirst().getShortDescription());
     }
 
     @Test
@@ -695,7 +695,7 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(1, result.size());
-        assertNull(result.get(0).getShortDescription());
+        assertNull(result.getFirst().getShortDescription());
     }
 
     @Test
@@ -718,7 +718,7 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(1, result.size());
-        assertEquals(0, result.get(0).getCommentCount());
+        assertEquals(0, result.getFirst().getCommentCount());
     }
 
     @Test

@@ -6,7 +6,7 @@ import org.junit.jupiter.api.DisplayName;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.orm.jpa.DataJpaTest;
 import org.springframework.boot.test.autoconfigure.orm.jpa.TestEntityManager;
-import org.springframework.boot.test.autoconfigure.jdbc.AutoConfigureTestDatabase;
+import org.springframework.test.context.ActiveProfiles;
 
 import java.util.List;
 import java.util.UUID;
@@ -14,7 +14,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.*;
 
 @DataJpaTest
-@AutoConfigureTestDatabase(replace = AutoConfigureTestDatabase.Replace.NONE)
+@ActiveProfiles("test")
 public class NotificationRepositoryTest {
 
     @Autowired
@@ -94,7 +94,7 @@ public class NotificationRepositoryTest {
 
         // Assert
         assertFalse(unreadNotifications.isEmpty(), "Should find at least one unread notification");
-        assertTrue(unreadNotifications.stream().allMatch(n -> !n.isRead()), "All notifications should be unread");
+        assertTrue(unreadNotifications.stream().noneMatch(Notification::isRead), "All notifications should be unread");
     }
 
     @Test
@@ -122,7 +122,7 @@ public class NotificationRepositoryTest {
 
         // Assert
         assertFalse(unreadNotifications.isEmpty(), "Should find at least one unread notification");
-        assertTrue(unreadNotifications.stream().allMatch(n -> !n.isRead()), "All notifications should be unread");
+        assertTrue(unreadNotifications.stream().noneMatch(Notification::isRead), "All notifications should be unread");
     }
 
     @Test

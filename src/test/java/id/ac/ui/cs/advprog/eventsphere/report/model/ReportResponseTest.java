@@ -45,10 +45,7 @@ public class ReportResponseTest {
         ReportResponse response = new ReportResponse();
 
         // Membuat pesan yang melebihi panjang maksimum
-        StringBuilder longMessage = new StringBuilder();
-        for (int i = 0; i < 501; i++) {
-            longMessage.append("a");
-        }
+        String longMessage = "a".repeat(501);
 
         // Set nilai yang valid
         response.setResponderId(1L);
@@ -56,9 +53,7 @@ public class ReportResponseTest {
         response.setResponderRole("ADMIN");
 
         // Act & Assert
-        assertThrows(IllegalArgumentException.class, () -> {
-            response.setMessage(longMessage.toString());
-        });
+        assertThrows(IllegalArgumentException.class, () -> response.setMessage(longMessage));
 
         // Test dengan pesan yang valid
         String validMessage = "This is a valid message";

@@ -12,14 +12,14 @@ import java.util.Map;
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
 
-public class GlobalExceptionHandlerTest {
+public class PaymentExceptionHandlerTest {
     
-    private GlobalExceptionHandler exceptionHandler;
+    private PaymentExceptionHandler exceptionHandler;
     private WebRequest webRequest;
     
     @BeforeEach
     public void setUp() {
-        exceptionHandler = new GlobalExceptionHandler();
+        exceptionHandler = new PaymentExceptionHandler();
         webRequest = mock(WebRequest.class);
     }
     

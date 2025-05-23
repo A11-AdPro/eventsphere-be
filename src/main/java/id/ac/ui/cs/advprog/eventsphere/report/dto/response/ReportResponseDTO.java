@@ -17,7 +17,6 @@ public class ReportResponseDTO {
     private ReportCategory category;
     private String description;
     private ReportStatus status;
-    private List<String> attachments = new ArrayList<>();
     private LocalDateTime createdAt;
     private LocalDateTime updatedAt;
     private List<ReportCommentDTO> comments = new ArrayList<>();

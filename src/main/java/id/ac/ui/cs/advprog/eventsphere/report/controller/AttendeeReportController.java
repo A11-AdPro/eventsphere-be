@@ -14,7 +14,6 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
-import java.io.IOException;
 import java.util.List;
 import java.util.UUID;
 
@@ -33,8 +32,7 @@ public class AttendeeReportController {
 
     @PostMapping
     @PreAuthorize("hasRole('ATTENDEE')")
-    public ResponseEntity<ReportResponseDTO> createReport(@RequestBody CreateReportRequest createRequest)
-            throws IOException {
+    public ResponseEntity<ReportResponseDTO> createReport(@RequestBody CreateReportRequest createRequest) {
 
         // Get current authenticated user
         User currentUser = authService.getCurrentUser();
@@ -86,7 +84,7 @@ public class AttendeeReportController {
         // Set responder info from authenticated user
         commentRequest.setResponderId(currentUser.getId());
         commentRequest.setResponderRole("ATTENDEE");
-        commentRequest.setResponderEmail(currentUser.getEmail()); // Tambahkan ini
+        commentRequest.setResponderEmail(currentUser.getEmail());
 
         ReportCommentDTO comment = reportService.addComment(reportId, commentRequest);
         return new ResponseEntity<>(comment, HttpStatus.CREATED);

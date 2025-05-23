@@ -5,7 +5,7 @@ import lombok.Data;
 @Data
 public class CreateReportCommentRequest {
     private Long responderId;
-    private String responderEmail; // Menambahkan field responderEmail
+    private String responderEmail;
     private String responderRole;
     private String message;
 }

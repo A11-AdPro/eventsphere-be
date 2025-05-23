@@ -115,7 +115,7 @@ public class NotificationServiceTest {
         report.setId(UUID.randomUUID());
         UUID eventId = UUID.randomUUID();
 
-        List<Long> organizerIds = Arrays.asList(3L);
+        List<Long> organizerIds = List.of(3L);
         when(userService.getOrganizerIds(eventId)).thenReturn(organizerIds);
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
@@ -174,7 +174,7 @@ public class NotificationServiceTest {
         Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
-        List<Notification> notifications = Arrays.asList(notification1);
+        List<Notification> notifications = List.of(notification1);
         when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false)).thenReturn(notifications);
 
         // Act
@@ -194,7 +194,7 @@ public class NotificationServiceTest {
         Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
         notification1.setRead(false);
 
-        List<Notification> notifications = Arrays.asList(notification1);
+        List<Notification> notifications = List.of(notification1);
         when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(notifications);
 
         // Act
