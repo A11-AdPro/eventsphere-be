@@ -53,7 +53,21 @@ dependencies {
    implementation("io.jsonwebtoken:jjwt-api:0.11.5")
    runtimeOnly("io.jsonwebtoken:jjwt-impl:0.11.5")
    runtimeOnly("io.jsonwebtoken:jjwt-jackson:0.11.5")
-}
+
+    // Spring Boot Starters
+    implementation("org.springframework.boot:spring-boot-starter-web")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-security")
+
+    // ModelMapper
+    implementation("org.modelmapper:modelmapper:3.1.1")
+
+    // Jika pakai Lombok
+    compileOnly("org.projectlombok:lombok")
+    annotationProcessor("org.projectlombok:lombok")
+
+    // Jika pakai Jakarta Validation
+    implementation("jakarta.validation:jakarta.validation-api:3.0.2")
 
 tasks.register<Test>("unitTest") {
    description = "Runs unit tests."
@@ -90,4 +104,5 @@ tasks.jacocoTestReport {
 
 tasks.withType<Test>().configureEach {
    useJUnitPlatform()
+}
 }
