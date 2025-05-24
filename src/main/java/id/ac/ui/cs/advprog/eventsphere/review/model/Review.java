@@ -87,7 +87,7 @@ public class Review {
     @PrePersist
     protected void onCreate() {
         this.createdAt = LocalDateTime.now();
-        this.updatedAt = LocalDateTime.now();
+        this.updatedAt = this.createdAt; // Ensures updatedAt is identical to createdAt on initial creation
     }
 
     @PreUpdate
