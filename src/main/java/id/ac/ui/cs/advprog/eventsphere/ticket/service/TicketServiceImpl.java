@@ -3,11 +3,15 @@ package id.ac.ui.cs.advprog.eventsphere.ticket.service;
 import id.ac.ui.cs.advprog.eventsphere.ticket.model.Ticket;
 import id.ac.ui.cs.advprog.eventsphere.ticket.repository.TicketRepository;
 import id.ac.ui.cs.advprog.eventsphere.ticket.exception.TicketNotFoundException;
+import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
+import id.ac.ui.cs.advprog.eventsphere.event.exception.EventNotFoundException;
+import id.ac.ui.cs.advprog.eventsphere.event.service.EventService;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketRequest;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
@@ -15,14 +19,22 @@ import java.util.stream.Collectors;
 @Service
 public class TicketServiceImpl implements TicketService {
     private final TicketRepository repo;
+    private final EventService eventService;
 
-    public TicketServiceImpl(TicketRepository repo) {
+    public TicketServiceImpl(TicketRepository repo, EventService eventService) {
         this.repo = repo;
+        this.eventService = eventService;
     }
 
     @Async
     @Override
     public CompletableFuture<TicketResponse> addTicket(TicketRequest request) {
+        try {
+            EventResponseDTO event = eventService.getActiveEventById(request.eventId);
+        } catch (EventNotFoundException e) {
+            throw new RuntimeException("Cannot create ticket for non-existent event");
+        }
+
         Ticket ticket = new Ticket(null, request.name, request.price, request.quota, request.category, request.eventId);
         return CompletableFuture.completedFuture(toResponse(repo.save(ticket)));
     }
@@ -53,6 +65,11 @@ public class TicketServiceImpl implements TicketService {
         Ticket ticket = repo.findById(id)
                 .orElseThrow(() -> new RuntimeException("Ticket not found"));
 
+        EventResponseDTO event = eventService.getActiveEventById(ticket.getEventId());
+        if (event.getEventDate().isBefore(LocalDateTime.now())) {
+            throw new RuntimeException("Cannot purchase ticket for past event");
+        }
+        
         if (ticket.isSoldOut()) {
             throw new RuntimeException("Ticket is sold out");
         }

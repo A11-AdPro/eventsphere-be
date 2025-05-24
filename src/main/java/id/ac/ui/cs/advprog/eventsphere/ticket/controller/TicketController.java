@@ -20,6 +20,17 @@ public class TicketController {
         this.service = service;
     }
 
+    @PreAuthorize("hasRole('ROLE_ATTENDEE') or hasRole('ROLE_ORGANIZER') or hasRole('ROLE_ADMIN')")
+    @GetMapping("/{id}")
+    public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id) {
+        try {
+            TicketResponse response = service.getTicketById(id);
+            return ResponseEntity.ok(response);
+        } catch (Exception e) {
+            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
+        }
+    }
+
     @PreAuthorize("hasRole('ROLE_ORGANIZER')")
     @PostMapping
     public ResponseEntity<TicketResponse> create(@RequestBody TicketRequest request) {
