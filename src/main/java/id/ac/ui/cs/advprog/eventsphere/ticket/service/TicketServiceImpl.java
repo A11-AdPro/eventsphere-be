@@ -45,19 +45,25 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public TicketResponse updateTicket(Long id, TicketRequest request, User organizer) {
-        if (!Role.ORGANIZER.equals(organizer.getRole())) {
-            throw new RuntimeException("Hanya organizer yang dapat mengupdate tiket.");
+        try {
+            if (!Role.ORGANIZER.equals(organizer.getRole())) {
+                throw new RuntimeException("Hanya organizer yang dapat mengupdate tiket.");
+            }
+
+            Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
+            ticket.setName(request.getName());
+            ticket.setCategory(request.getCategory());
+            Event event = eventRepository.findById(request.getEventId())
+                    .orElseThrow(() -> new EventNotFoundException("Event not found with ID: " + request.getEventId()));
+            ticket.setEvent(event);
+            ticket.updateDetails(request.getPrice(), request.getQuota());
+
+            return toResponse(repo.save(ticket));
+        } catch (Exception e) {
+            System.err.println("Error updating ticket: " + e.getMessage());
+            e.printStackTrace();
+            throw e; // rethrow biar tetap error, tapi kita bisa lihat log dulu
         }
-
-        Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
-        ticket.setName(request.getName());
-        ticket.setCategory(request.getCategory());
-        Event event = eventRepository.findById(request.getEventId())
-                .orElseThrow(() -> new EventNotFoundException("Event not found with ID: " + request.getEventId()));
-        ticket.setEvent(event);
-        ticket.updateDetails(request.getPrice(), request.getQuota());
-
-        return toResponse(repo.save(ticket));
     }
 
     @Override

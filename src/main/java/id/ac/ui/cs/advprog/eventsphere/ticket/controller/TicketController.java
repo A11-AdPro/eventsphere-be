@@ -36,7 +36,7 @@ public class TicketController {
     }
 
     @PostMapping
-    @PreAuthorize("hasRole('ROLE_ORGANIZER')")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public ResponseEntity<TicketResponse> createTicket(@Valid @RequestBody TicketRequest request) {
         User organizer = getAuthenticatedUser();
         TicketResponse response = ticketService.addTicket(request, organizer);
@@ -44,24 +44,25 @@ public class TicketController {
     }
 
     @PutMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_ORGANIZER')")
+    @PreAuthorize("hasRole('ORGANIZER')")
     public ResponseEntity<TicketResponse> updateTicket(
             @PathVariable Long id,
             @Valid @RequestBody TicketRequest request) {
         User organizer = getAuthenticatedUser();
+        System.out.println("Updating ticket by user with role: " + organizer.getRole());
         TicketResponse response = ticketService.updateTicket(id, request, organizer);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ROLE_ATTENDEE')")
+    @PreAuthorize("hasRole('ATTENDEE')")
     public ResponseEntity<List<TicketResponse>> listAvailableTickets() {
         List<TicketResponse> tickets = ticketService.getAvailableTickets();
         return ResponseEntity.ok(tickets);
     }
 
     @DeleteMapping("/{id}")
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
+    @PreAuthorize("hasRole('ADMIN')")
     public ResponseEntity<Map<String, String>> deleteTicket(@PathVariable Long id) {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
