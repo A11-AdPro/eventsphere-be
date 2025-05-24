@@ -20,7 +20,8 @@ public class NotificationService implements ReportObserver {
     private final UserService userService;
 
     @Autowired
-    public NotificationService(NotificationRepository notificationRepository, UserService userService) {
+    public NotificationService(NotificationRepository notificationRepository,
+                               UserService userService) {
         this.notificationRepository = notificationRepository;
         this.userService = userService;
     }
@@ -29,10 +30,15 @@ public class NotificationService implements ReportObserver {
     public void onStatusChanged(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
         // Create notification for the report owner
         String title = "Report Status Updated";
-        String message = "Your report status has been updated from " + oldStatus.getDisplayName() +
-                " to " + newStatus.getDisplayName() + ".\n\n" +
-                "Category: " + report.getCategory().getDisplayName() + "\n" +
-                "Description: " + report.getDescription();
+        String message = String.format(
+                "Your report status has been updated from %s to %s.\n\n" +
+                        "Category: %s\n" +
+                        "Description: %s",
+                oldStatus.getDisplayName(),
+                newStatus.getDisplayName(),
+                report.getCategory().getDisplayName(),
+                report.getDescription()
+        );
 
         Notification notification = new Notification(
                 report.getUserId(),
@@ -49,14 +55,69 @@ public class NotificationService implements ReportObserver {
 
     @Override
     public void onResponseAdded(Report report, ReportResponse response) {
-        // Create notification for the report owner
-        String title = "New Response to Your Report";
-        String message = "A new response has been added to your report:\n\n" +
-                "From: " + response.getResponderRole() + "\n" +
-                "Message: " + response.getMessage() + "\n\n" +
-                "Report Details:\n" +
-                "Category: " + report.getCategory().getDisplayName() + "\n" +
-                "Status: " + report.getStatus().getDisplayName();
+        // Check if the response is from the report owner (attendee)
+        boolean isFromAttendee = report.getUserEmail().equals(response.getResponderEmail()) ||
+                report.getUserId().equals(response.getResponderId());
+
+        // Check if the response is from admin/organizer
+        boolean isFromStaff = "ADMIN".equals(response.getResponderRole()) ||
+                "ORGANIZER".equals(response.getResponderRole());
+
+        // Notify admins when attendee responds
+        if (isFromAttendee) {
+            notifyAdminsOfResponse(report, response);
+        }
+        // Notify attendee when admin/organizer responds
+        else if (isFromStaff) {
+            notifyAttendeeOfResponse(report, response);
+        }
+    }
+
+    private void notifyAdminsOfResponse(Report report, ReportResponse response) {
+        List<Long> adminIds = userService.getAdminIds();
+
+        for (Long adminId : adminIds) {
+            String adminEmail = userService.getUserEmail(adminId);
+            String title = "New Response to Report";
+            String message = String.format(
+                    "The attendee has responded to report #%s:\n\n" +
+                            "Message: %s\n\n" +
+                            "Category: %s\n" +
+                            "Status: %s",
+                    report.getId().toString().substring(0, 8),
+                    response.getMessage(),
+                    report.getCategory().getDisplayName(),
+                    report.getStatus().getDisplayName()
+            );
+
+            Notification notification = new Notification(
+                    adminId,
+                    adminEmail,
+                    "ATTENDEE",
+                    title,
+                    message,
+                    "NEW_RESPONSE",
+                    report.getId()
+            );
+
+            notificationRepository.save(notification);
+        }
+    }
+
+    private void notifyAttendeeOfResponse(Report report, ReportResponse response) {
+        String title = "Response to Your Report";
+        String message = String.format(
+                "A staff member has responded to your report #%s:\n\n" +
+                        "From: %s\n" +
+                        "Message: %s\n\n" +
+                        "Category: %s\n" +
+                        "Status: %s",
+                report.getId().toString().substring(0, 8),
+                response.getResponderRole(),
+                response.getMessage(),
+                report.getCategory().getDisplayName(),
+                report.getStatus().getDisplayName()
+        );
 
         Notification notification = new Notification(
                 report.getUserId(),
@@ -64,7 +125,7 @@ public class NotificationService implements ReportObserver {
                 response.getResponderRole(),
                 title,
                 message,
-                "NEW_RESPONSE",
+                "STAFF_RESPONSE",
                 report.getId()
         );
 
@@ -79,10 +140,14 @@ public class NotificationService implements ReportObserver {
         for (Long adminId : adminIds) {
             String adminEmail = userService.getUserEmail(adminId);
             String title = "New Report Submitted";
-            String message = "A new report has been submitted:\n\n" +
-                    "Category: " + report.getCategory().getDisplayName() + "\n" +
-                    "Description: " + report.getDescription() + "\n\n" +
-                    "Please review this report in the admin dashboard.";
+            String message = String.format(
+                    "A new report has been submitted:\n\n" +
+                            "Category: %s\n" +
+                            "Description: %s\n\n" +
+                            "Please review this report in the admin dashboard.",
+                    report.getCategory().getDisplayName(),
+                    report.getDescription()
+            );
 
             Notification notification = new Notification(
                     adminId,
@@ -106,10 +171,14 @@ public class NotificationService implements ReportObserver {
         for (Long organizerId : organizerIds) {
             String organizerEmail = userService.getUserEmail(organizerId);
             String title = "New Report Related to Your Event";
-            String message = "A new report has been submitted for an event you manage:\n\n" +
-                    "Category: " + report.getCategory().getDisplayName() + "\n" +
-                    "Description: " + report.getDescription() + "\n\n" +
-                    "Please review this report in your organizer dashboard.";
+            String message = String.format(
+                    "A new report has been submitted for an event you manage:\n\n" +
+                            "Category: %s\n" +
+                            "Description: %s\n\n" +
+                            "Please review this report in your organizer dashboard.",
+                    report.getCategory().getDisplayName(),
+                    report.getDescription()
+            );
 
             Notification notification = new Notification(
                     organizerId,

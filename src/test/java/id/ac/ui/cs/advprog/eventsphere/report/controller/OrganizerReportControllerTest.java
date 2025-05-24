@@ -228,4 +228,20 @@ public class OrganizerReportControllerTest {
         verify(reportService).getReportsByStatus(ReportStatus.PENDING);
     }
 
+    @Test
+    @DisplayName("Menghapus laporan")
+    public void testDeleteReport() throws Exception {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+
+        // Mock service
+        doNothing().when(reportService).deleteReport(reportId);
+
+        // Act
+        mockMvc.perform(delete("/api/organizer/reports/{id}", reportId))
+                .andExpect(status().isNoContent());
+
+        // Verify that reportService.deleteReport() was called with the correct ID
+        verify(reportService).deleteReport(reportId);
+    }
 }

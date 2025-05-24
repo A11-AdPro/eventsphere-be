@@ -16,6 +16,7 @@ import jakarta.persistence.EntityNotFoundException;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
@@ -108,8 +109,9 @@ public class ReportService {
             report.getObservers().add(notificationService);
         }
 
-        // Update the status
+        // Update the status and updatedAt timestamp
         report.updateStatus(newStatus);
+        report.setUpdatedAt(LocalDateTime.now()); // Explicitly set updatedAt
 
         // Save the updated report
         Report updatedReport = reportRepository.save(report);
@@ -133,17 +135,26 @@ public class ReportService {
         commentEntity.setResponderRole(commentRequest.getResponderRole());
         commentEntity.setMessage(commentRequest.getMessage());
 
+        // Check if the commenter is the report owner
+        boolean isReportOwner = report.getUserEmail().equals(commentRequest.getResponderEmail()) ||
+                report.getUserId().equals(commentRequest.getResponderId());
+
         // Add the comment to the report
         report.addResponse(commentEntity);
+
+        // Update the report's updatedAt timestamp
+        report.setUpdatedAt(LocalDateTime.now());
 
         // Save the comment
         ReportResponse savedComment = responseRepository.save(commentEntity);
 
-        // Auto-update status to ON_PROGRESS if it's currently PENDING
-        if (report.getStatus() == ReportStatus.PENDING) {
+        // Auto-update status to ON_PROGRESS if it's currently PENDING and commenter is not the report owner
+        if (report.getStatus() == ReportStatus.PENDING && !isReportOwner) {
             report.updateStatus(ReportStatus.ON_PROGRESS);
-            reportRepository.save(report);
         }
+
+        // Save the updated report
+        reportRepository.save(report);
 
         // Convert entity to DTO
         return convertToCommentDTO(savedComment);
@@ -153,7 +164,6 @@ public class ReportService {
         Report report = findReportById(reportId);
         reportRepository.delete(report);
     }
-
 
     private Report findReportById(UUID id) {
         return reportRepository.findById(id)

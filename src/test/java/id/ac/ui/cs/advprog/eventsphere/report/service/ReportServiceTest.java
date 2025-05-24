@@ -24,6 +24,7 @@ import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
@@ -76,12 +77,20 @@ public class ReportServiceTest {
             return report;
         });
 
+        // Mock async notification methods to return completed futures
+        when(notificationService.notifyNewReportAsync(any(Report.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        when(notificationService.notifyOrganizerOfReportAsync(any(Report.class), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
+
         // Act
         ReportResponseDTO result = reportService.createReport(createRequest);
 
         // Assert
         verify(reportRepository).save(any(Report.class));
-        verify(notificationService).notifyNewReport(any(Report.class));
+        // Update verification to use async methods
+        verify(notificationService).notifyNewReportAsync(any(Report.class));
+        verify(notificationService).notifyOrganizerOfReportAsync(any(Report.class), any());
 
         assertNotNull(result.getId());
         assertEquals(userId, result.getUserId());
@@ -113,6 +122,12 @@ public class ReportServiceTest {
             report.setId(UUID.randomUUID());
             return report;
         });
+
+        // Mock async notification methods to return completed futures
+        when(notificationService.notifyNewReportAsync(any(Report.class)))
+                .thenReturn(CompletableFuture.completedFuture(null));
+        when(notificationService.notifyOrganizerOfReportAsync(any(Report.class), any()))
+                .thenReturn(CompletableFuture.completedFuture(null));
 
         // Act
         ReportResponseDTO result = reportService.createReport(createRequest);
@@ -346,7 +361,7 @@ public class ReportServiceTest {
 
     @Test
     @DisplayName("Mengambil semua laporan")
-    public void testGetReportsByStatus_withNulStaltus() {
+    public void testGetReportsByStatus_withNullStatus() {
         // Arrange
         Report report1 = new Report();
         report1.setId(UUID.randomUUID());
@@ -753,4 +768,59 @@ public class ReportServiceTest {
         // Verifikasi bahwa method findById dipanggil dengan parameter yang benar
         verify(userRepository).findById(userId);
     }
+
+    @Test
+    @DisplayName("Menangani error pada kedua async notification dan tetap melanjutkan proses")
+    public void testCreateReportWithBothAsyncNotificationErrors() {
+        // Arrange
+        Long userId = 1L;
+        String userEmail = "user@example.com";
+
+        CreateReportRequest createRequest = new CreateReportRequest();
+        createRequest.setUserId(userId);
+        createRequest.setUserEmail(userEmail);
+        createRequest.setCategory(ReportCategory.PAYMENT);
+        createRequest.setDescription("Test description");
+
+        User mockUser = new User();
+        mockUser.setEmail(userEmail);
+
+        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+
+        // Mock both notifications to fail
+        CompletableFuture<Void> failedAdminFuture = new CompletableFuture<>();
+        failedAdminFuture.completeExceptionally(new RuntimeException("Admin notification failed"));
+
+        CompletableFuture<Void> failedOrganizerFuture = new CompletableFuture<>();
+        failedOrganizerFuture.completeExceptionally(new RuntimeException("Organizer notification failed"));
+
+        when(notificationService.notifyNewReportAsync(any(Report.class)))
+                .thenReturn(failedAdminFuture);
+        when(notificationService.notifyOrganizerOfReportAsync(any(Report.class), any()))
+                .thenReturn(failedOrganizerFuture);
+
+        // Act
+        ReportResponseDTO result = reportService.createReport(createRequest);
+
+        // Assert - The report should still be created successfully despite both notification failures
+        assertNotNull(result.getId());
+        assertEquals(userId, result.getUserId());
+        verify(reportRepository).save(any(Report.class));
+        verify(notificationService).notifyNewReportAsync(any(Report.class));
+        verify(notificationService).notifyOrganizerOfReportAsync(any(Report.class), any());
+
+        // Wait a bit to ensure the async callbacks are executed
+        try {
+            Thread.sleep(100);
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+    }
+
+
 }

@@ -15,6 +15,8 @@ import org.mockito.ArgumentCaptor;
 import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -90,7 +92,7 @@ public class NotificationServiceTest {
 
     @Test
     @DisplayName("Membuat notifikasi untuk admin saat laporan baru dibuat")
-    public void testNotifyNewReport() {
+    public void testNotifyNewReport() throws Exception {
         // Arrange
         Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
         report.setId(UUID.randomUUID());
@@ -101,15 +103,40 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(2L)).thenReturn("admin2@example.com");
 
         // Act
-        notificationService.notifyNewReport(report);
+        CompletableFuture<Void> future = notificationService.notifyNewReportAsync(report);
+
+        // Wait for async operation to complete
+        future.get(5, TimeUnit.SECONDS);
 
         // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
+        verify(userService).getAdminIds();
+        verify(userService).getUserEmail(1L);
+        verify(userService).getUserEmail(2L);
+    }
+
+    @Test
+    @DisplayName("Membuat notifikasi untuk admin saat laporan baru dibuat - metode backward compatibility")
+    public void testNotifyNewReportBackwardCompatibility() {
+        // Arrange
+        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        report.setId(UUID.randomUUID());
+
+        List<Long> adminIds = Arrays.asList(1L, 2L);
+        when(userService.getAdminIds()).thenReturn(adminIds);
+        when(userService.getUserEmail(1L)).thenReturn("admin1@example.com");
+        when(userService.getUserEmail(2L)).thenReturn("admin2@example.com");
+
+        // Act - Test the backward compatibility method
+        assertDoesNotThrow(() -> notificationService.notifyNewReport(report));
+
+        // Assert - We can't verify async operations here as they run in the background
+        // This test ensures the method doesn't throw exceptions
     }
 
     @Test
     @DisplayName("Membuat notifikasi untuk organizer saat laporan terkait event dibuat")
-    public void testNotifyOrganizerOfReport() {
+    public void testNotifyOrganizerOfReport() throws Exception {
         // Arrange
         Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
         report.setId(UUID.randomUUID());
@@ -120,10 +147,65 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.notifyOrganizerOfReport(report, eventId);
+        CompletableFuture<Void> future = notificationService.notifyOrganizerOfReportAsync(report, eventId);
+
+        // Wait for async operation to complete
+        future.get(5, TimeUnit.SECONDS);
 
         // Assert
         verify(notificationRepository).save(any(Notification.class));
+        verify(userService).getOrganizerIds(eventId);
+        verify(userService).getUserEmail(3L);
+    }
+
+    @Test
+    @DisplayName("Membuat notifikasi untuk organizer saat laporan terkait event dibuat - metode backward compatibility")
+    public void testNotifyOrganizerOfReportBackwardCompatibility() {
+        // Arrange
+        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        report.setId(UUID.randomUUID());
+        UUID eventId = UUID.randomUUID();
+
+        List<Long> organizerIds = List.of(3L);
+        when(userService.getOrganizerIds(eventId)).thenReturn(organizerIds);
+        when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
+
+        // Act - Test the backward compatibility method
+        assertDoesNotThrow(() -> notificationService.notifyOrganizerOfReport(report, eventId));
+
+        // Assert - We can't verify async operations here as they run in the background
+        // This test ensures the method doesn't throw exceptions
+    }
+
+    @Test
+    @DisplayName("Menangani error dalam async new report notification")
+    public void testNotifyNewReportAsyncError() {
+        // Arrange
+        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        report.setId(UUID.randomUUID());
+
+        when(userService.getAdminIds()).thenThrow(new RuntimeException("Database error"));
+
+        // Act & Assert
+        CompletableFuture<Void> future = notificationService.notifyNewReportAsync(report);
+
+        assertThrows(Exception.class, () -> future.get(5, TimeUnit.SECONDS));
+    }
+
+    @Test
+    @DisplayName("Menangani error dalam async organizer notification")
+    public void testNotifyOrganizerOfReportAsyncError() {
+        // Arrange
+        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        report.setId(UUID.randomUUID());
+        UUID eventId = UUID.randomUUID();
+
+        when(userService.getOrganizerIds(eventId)).thenThrow(new RuntimeException("Database error"));
+
+        // Act & Assert
+        CompletableFuture<Void> future = notificationService.notifyOrganizerOfReportAsync(report, eventId);
+
+        assertThrows(Exception.class, () -> future.get(5, TimeUnit.SECONDS));
     }
 
     @Test
@@ -321,5 +403,46 @@ public class NotificationServiceTest {
         assertEquals("Notification not found", exception.getMessage());
         verify(notificationRepository).findById(nonExistentId);
         verify(notificationRepository, never()).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Menangani error saat membuat notifikasi status change")
+    public void testOnStatusChanged_WithException() {
+        // Arrange
+        Long userId = 1L;
+        Report report = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
+        report.setId(UUID.randomUUID());
+        ReportStatus oldStatus = ReportStatus.PENDING;
+        ReportStatus newStatus = ReportStatus.ON_PROGRESS;
+
+        // Mock repository to throw exception
+        when(notificationRepository.save(any(Notification.class)))
+                .thenThrow(new RuntimeException("Database connection failed"));
+
+        // Act - this should not throw exception, but should log the error
+        assertDoesNotThrow(() -> notificationService.onStatusChanged(report, oldStatus, newStatus));
+
+        // Assert - verify that save was attempted
+        verify(notificationRepository).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Menangani error saat membuat notifikasi response added")
+    public void testOnResponseAdded_WithException() {
+        // Arrange
+        Long userId = 1L;
+        Report report = new Report(userId, "user@example.com", ReportCategory.TICKET, "Ticket issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
+
+        // Mock repository to throw exception
+        when(notificationRepository.save(any(Notification.class)))
+                .thenThrow(new RuntimeException("Database connection failed"));
+
+        // Act - this should not throw exception, but should log the error
+        assertDoesNotThrow(() -> notificationService.onResponseAdded(report, response));
+
+        // Assert - verify that save was attempted
+        verify(notificationRepository).save(any(Notification.class));
     }
 }
