@@ -55,7 +55,7 @@ public class TicketController {
     }
 
 
-    @PreAuthorize("hasRole('ROLE_ATTENDEE')")
+    @PreAuthorize("hasRole('ROLE_ATTENDEE') or hasRole('ROLE_ORGANIZER') or hasRole('ROLE_ADMIN')")
     @GetMapping
     public ResponseEntity<List<TicketResponse>> list() {
         List<TicketResponse> tickets = service.getAvailableTickets().join();  // <-- pakai join() biar blocking
