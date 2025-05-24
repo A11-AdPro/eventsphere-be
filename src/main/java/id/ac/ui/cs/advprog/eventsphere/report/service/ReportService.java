@@ -45,8 +45,7 @@ public class ReportService {
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
-        logger.info("Creating new report for user: {} - THREAD: {}",
-                createRequest.getUserId(), Thread.currentThread().getName());
+        logger.info("Creating new report for user: {}", createRequest.getUserId());
 
         // Ambil email pengguna dari repository jika tidak disediakan
         String userEmail = createRequest.getUserEmail();
@@ -69,15 +68,35 @@ public class ReportService {
 
         // Menyimpan laporan
         Report savedReport = reportRepository.save(report);
-        logger.info("Report saved with ID: {} - THREAD: {}",
-                savedReport.getId(), Thread.currentThread().getName());
+        logger.info("Report created successfully with ID: {}", savedReport.getId());
 
-        // Memberi tahu admin tentang laporan baru - ASYNC
-        logger.info("Starting async admin notification - THREAD: {}", Thread.currentThread().getName());
-        notificationService.notifyNewReport(savedReport);
+        // Notify BOTH admins and organizers about new report - ASYNC!
 
-        logger.info("Report creation completed, async processing started - THREAD: {}",
-                Thread.currentThread().getName());
+        // 1. Notify all admins
+        notificationService.notifyNewReportAsync(savedReport)
+                .whenComplete((result, exception) -> {
+                    if (exception != null) {
+                        logger.error("Failed to send async admin notifications for new report: {}",
+                                savedReport.getId(), exception);
+                    } else {
+                        logger.info("Async admin notifications sent successfully for new report: {}",
+                                savedReport.getId());
+                    }
+                });
+
+        // 2. Notify all organizers (using a dummy eventId or all organizers)
+        // You can modify this to use specific eventId if reports are related to specific events
+        UUID eventId = UUID.randomUUID(); // Replace with actual eventId if available
+        notificationService.notifyOrganizerOfReportAsync(savedReport, eventId)
+                .whenComplete((result, exception) -> {
+                    if (exception != null) {
+                        logger.error("Failed to send async organizer notifications for new report: {}",
+                                savedReport.getId(), exception);
+                    } else {
+                        logger.info("Async organizer notifications sent successfully for new report: {}",
+                                savedReport.getId());
+                    }
+                });
 
         return convertToResponseDTO(savedReport);
     }
@@ -114,9 +133,6 @@ public class ReportService {
     }
 
     public ReportResponseDTO updateReportStatus(UUID reportId, ReportStatus newStatus) {
-        logger.info("Updating report status to {} for report: {} - THREAD: {}",
-                newStatus, reportId, Thread.currentThread().getName());
-
         Report report = findReportById(reportId);
 
         // Register observer if not already registered
@@ -124,19 +140,17 @@ public class ReportService {
             report.getObservers().add(notificationService);
         }
 
-        // Update the status - this will trigger async notification
+        // Update the status
         report.updateStatus(newStatus);
 
         // Save the updated report
         Report updatedReport = reportRepository.save(report);
-        logger.info("Report status updated successfully - THREAD: {}", Thread.currentThread().getName());
 
+        // Convert entity to response DTO
         return convertToResponseDTO(updatedReport);
     }
 
     public ReportCommentDTO addComment(UUID reportId, CreateReportCommentRequest commentRequest) {
-        logger.info("Adding comment to report: {} - THREAD: {}", reportId, Thread.currentThread().getName());
-
         Report report = findReportById(reportId);
 
         // Register observer if not already registered
@@ -151,7 +165,7 @@ public class ReportService {
         commentEntity.setResponderRole(commentRequest.getResponderRole());
         commentEntity.setMessage(commentRequest.getMessage());
 
-        // Add the comment to the report - this will trigger async notification
+        // Add the comment to the report
         report.addResponse(commentEntity);
 
         // Save the comment
@@ -163,15 +177,13 @@ public class ReportService {
             reportRepository.save(report);
         }
 
-        logger.info("Comment added successfully - THREAD: {}", Thread.currentThread().getName());
+        // Convert entity to DTO
         return convertToCommentDTO(savedComment);
     }
 
     public void deleteReport(UUID reportId) {
-        logger.info("Deleting report: {} - THREAD: {}", reportId, Thread.currentThread().getName());
         Report report = findReportById(reportId);
         reportRepository.delete(report);
-        logger.info("Report deleted successfully - THREAD: {}", Thread.currentThread().getName());
     }
 
     private Report findReportById(UUID id) {

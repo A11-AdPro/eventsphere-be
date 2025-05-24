@@ -34,8 +34,7 @@ public class NotificationService implements ReportObserver {
     @Override
     @Async("notificationExecutor")
     public void onStatusChanged(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
-        logger.info("Processing ASYNC status change notification for report: {} - THREAD: {}",
-                report.getId(), Thread.currentThread().getName());
+        logger.info("Processing async status change notification for report: {}", report.getId());
 
         try {
             // Create notification for the report owner
@@ -56,12 +55,10 @@ public class NotificationService implements ReportObserver {
             );
 
             notificationRepository.save(notification);
-            logger.info("Status change notification sent successfully - THREAD: {}",
-                    Thread.currentThread().getName());
+            logger.info("Status change notification sent successfully for report: {}", report.getId());
 
         } catch (Exception e) {
-            logger.error("Failed to send status change notification - THREAD: {}",
-                    Thread.currentThread().getName(), e);
+            logger.error("Failed to send status change notification for report: {}", report.getId(), e);
         }
     }
 
@@ -100,11 +97,11 @@ public class NotificationService implements ReportObserver {
 
     @Async("notificationExecutor")
     public CompletableFuture<Void> notifyNewReportAsync(Report report) {
-        logger.info("Processing ASYNC new report notifications for report: {} - THREAD: {}",
-                report.getId(), Thread.currentThread().getName());
+        logger.info("Processing async new report notifications for report: {}", report.getId());
 
         return CompletableFuture.runAsync(() -> {
             try {
+                // Get admin IDs
                 List<Long> adminIds = userService.getAdminIds();
 
                 // Create notification for each admin
@@ -127,37 +124,31 @@ public class NotificationService implements ReportObserver {
                     );
 
                     notificationRepository.save(notification);
+                    logger.debug("New report notification sent to admin: {}", adminEmail);
                 }
 
-                logger.info("All admin notifications sent successfully ({} admins) - THREAD: {}",
-                        adminIds.size(), Thread.currentThread().getName());
+                logger.info("All new report notifications sent successfully for report: {}", report.getId());
 
             } catch (Exception e) {
-                logger.error("Failed to send admin notifications for report: {}", report.getId(), e);
-                throw new RuntimeException("Admin notification failed", e);
+                logger.error("Failed to send new report notifications for report: {}", report.getId(), e);
+                throw new RuntimeException("Async notification failed", e);
             }
         });
     }
 
-    // Synchronous version
+    // Keep this method for backward compatibility - calls async version
     public void notifyNewReport(Report report) {
-        notifyNewReportAsync(report)
-                .whenComplete((result, exception) -> {
-                    if (exception != null) {
-                        logger.error("Async admin notification failed for report: {}", report.getId(), exception);
-                    } else {
-                        logger.info("Async admin notifications completed for report: {}", report.getId());
-                    }
-                });
+        notifyNewReportAsync(report);
     }
 
     @Async("notificationExecutor")
     public CompletableFuture<Void> notifyOrganizerOfReportAsync(Report report, UUID eventId) {
-        logger.info("📨 Processing ASYNC organizer notifications for report: {} and event: {} - THREAD: {}",
-                report.getId(), eventId, Thread.currentThread().getName());
+        logger.info("Processing async organizer notifications for report: {} and event: {}",
+                report.getId(), eventId);
 
         return CompletableFuture.runAsync(() -> {
             try {
+                // Get organizer IDs for the event
                 List<Long> organizerIds = userService.getOrganizerIds(eventId);
 
                 // Create notification for each organizer
@@ -180,30 +171,24 @@ public class NotificationService implements ReportObserver {
                     );
 
                     notificationRepository.save(notification);
+                    logger.debug("Event report notification sent to organizer: {}", organizerEmail);
                 }
 
-                logger.info("All organizer notifications sent successfully ({} organizers) - THREAD: {}",
-                        organizerIds.size(), Thread.currentThread().getName());
+                logger.info("All organizer notifications sent successfully for report: {}", report.getId());
 
             } catch (Exception e) {
                 logger.error("Failed to send organizer notifications for report: {}", report.getId(), e);
-                throw new RuntimeException("Organizer notification failed", e);
+                throw new RuntimeException("Async organizer notification failed", e);
             }
         });
     }
 
-    // Synchronous version
+    // Keep this method for backward compatibility - calls async version
     public void notifyOrganizerOfReport(Report report, UUID eventId) {
-        notifyOrganizerOfReportAsync(report, eventId)
-                .whenComplete((result, exception) -> {
-                    if (exception != null) {
-                        logger.error("Async organizer notification failed for report: {}", report.getId(), exception);
-                    } else {
-                        logger.info("Async organizer notifications completed for report: {}", report.getId());
-                    }
-                });
+        notifyOrganizerOfReportAsync(report, eventId);
     }
 
+    // ALL EXISTING METHODS REMAIN THE SAME - NO CHANGES
     public List<Notification> getUserNotifications(Long userId) {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
     }
