@@ -13,19 +13,16 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportRepository;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepository;
 import jakarta.persistence.EntityNotFoundException;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
 public class ReportService {
-
-    private static final Logger logger = LoggerFactory.getLogger(ReportService.class);
 
     private final ReportRepository reportRepository;
     private final ReportResponseRepository responseRepository;
@@ -45,8 +42,6 @@ public class ReportService {
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
-        logger.info("Creating new report for user: {}", createRequest.getUserId());
-
         // Ambil email pengguna dari repository jika tidak disediakan
         String userEmail = createRequest.getUserEmail();
         if (userEmail == null || userEmail.isEmpty()) {
@@ -68,35 +63,9 @@ public class ReportService {
 
         // Menyimpan laporan
         Report savedReport = reportRepository.save(report);
-        logger.info("Report created successfully with ID: {}", savedReport.getId());
 
-        // Notify BOTH admins and organizers about new report - ASYNC!
-
-        // 1. Notify all admins
-        notificationService.notifyNewReportAsync(savedReport)
-                .whenComplete((result, exception) -> {
-                    if (exception != null) {
-                        logger.error("Failed to send async admin notifications for new report: {}",
-                                savedReport.getId(), exception);
-                    } else {
-                        logger.info("Async admin notifications sent successfully for new report: {}",
-                                savedReport.getId());
-                    }
-                });
-
-        // 2. Notify all organizers (using a dummy eventId or all organizers)
-        // You can modify this to use specific eventId if reports are related to specific events
-        UUID eventId = UUID.randomUUID(); // Replace with actual eventId if available
-        notificationService.notifyOrganizerOfReportAsync(savedReport, eventId)
-                .whenComplete((result, exception) -> {
-                    if (exception != null) {
-                        logger.error("Failed to send async organizer notifications for new report: {}",
-                                savedReport.getId(), exception);
-                    } else {
-                        logger.info("Async organizer notifications sent successfully for new report: {}",
-                                savedReport.getId());
-                    }
-                });
+        // Memberi tahu admin tentang laporan baru
+        notificationService.notifyNewReport(savedReport);
 
         return convertToResponseDTO(savedReport);
     }
@@ -140,8 +109,9 @@ public class ReportService {
             report.getObservers().add(notificationService);
         }
 
-        // Update the status
+        // Update the status and updatedAt timestamp
         report.updateStatus(newStatus);
+        report.setUpdatedAt(LocalDateTime.now()); // Explicitly set updatedAt
 
         // Save the updated report
         Report updatedReport = reportRepository.save(report);
@@ -165,17 +135,26 @@ public class ReportService {
         commentEntity.setResponderRole(commentRequest.getResponderRole());
         commentEntity.setMessage(commentRequest.getMessage());
 
+        // Check if the commenter is the report owner
+        boolean isReportOwner = report.getUserEmail().equals(commentRequest.getResponderEmail()) ||
+                report.getUserId().equals(commentRequest.getResponderId());
+
         // Add the comment to the report
         report.addResponse(commentEntity);
+
+        // Update the report's updatedAt timestamp
+        report.setUpdatedAt(LocalDateTime.now());
 
         // Save the comment
         ReportResponse savedComment = responseRepository.save(commentEntity);
 
-        // Auto-update status to ON_PROGRESS if it's currently PENDING
-        if (report.getStatus() == ReportStatus.PENDING) {
+        // Auto-update status to ON_PROGRESS if it's currently PENDING and commenter is not the report owner
+        if (report.getStatus() == ReportStatus.PENDING && !isReportOwner) {
             report.updateStatus(ReportStatus.ON_PROGRESS);
-            reportRepository.save(report);
         }
+
+        // Save the updated report
+        reportRepository.save(report);
 
         // Convert entity to DTO
         return convertToCommentDTO(savedComment);

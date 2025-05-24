@@ -73,13 +73,13 @@ public class NotificationController {
     public ResponseEntity<Void> markAllNotificationsAsRead() {
         User currentUser = authService.getCurrentUser();
         notificationService.markAllNotificationsAsReadByEmail(currentUser.getEmail());
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteNotification(@PathVariable UUID id) {
         notificationService.deleteNotification(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 }

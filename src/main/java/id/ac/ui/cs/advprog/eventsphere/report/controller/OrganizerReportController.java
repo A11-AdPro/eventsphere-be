@@ -75,6 +75,6 @@ public class OrganizerReportController {
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteReport(@PathVariable UUID id) {
         reportService.deleteReport(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 }
