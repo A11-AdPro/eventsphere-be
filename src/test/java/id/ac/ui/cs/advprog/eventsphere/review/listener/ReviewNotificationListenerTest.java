@@ -1,58 +1,44 @@
 package id.ac.ui.cs.advprog.eventsphere.review.listener;
 
-import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.review.event.ReviewCreatedEvent;
 import id.ac.ui.cs.advprog.eventsphere.review.model.Review;
-import org.junit.jupiter.api.BeforeEach;
-import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
+import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.slf4j.Logger;
 
-import java.time.LocalDateTime;
+import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class ReviewNotificationListenerTest {
+class ReviewNotificationListenerTest {
+
+    // We can mock the logger to verify interactions if needed, but for now,
+    // we'll focus on ensuring the method runs without error as it primarily logs.
+    // @Mock
+    // private Logger logger; // Assuming SLF4J is used via Lombok @Slf4j
 
     @InjectMocks
-    private ReviewNotificationListener reviewNotificationListener;
-
-    private User testUser;
-    private Review testReview;
-    private ReviewCreatedEvent event;
-    private final Long TEST_EVENT_ID = 1L;
-
-    @BeforeEach
-    void setUp() {
-        testUser = User.builder()
-                .id(1L)
-                .email("attendee@example.com")
-                .fullName("Test Attendee")
-                .role(Role.ATTENDEE)
-                .build();
-
-        testReview = Review.builder()
-                .id(1L)
-                .content("Great event!")
-                .rating(5)
-                .eventId(TEST_EVENT_ID)
-                .user(testUser)
-                .createdAt(LocalDateTime.now())
-                .updatedAt(LocalDateTime.now())
-                .build();
-
-        event = new ReviewCreatedEvent(this, testReview);
-    }
+    private ReviewNotificationListener listener;
 
     @Test
-    @DisplayName("Should process notification when review created event is received")
-    void handleReviewCreatedEventShouldProcessNotification() {
-        // Act - This would normally throw an exception if there's an issue
-        reviewNotificationListener.handleReviewCreatedEvent(event);
+    void handleReviewCreatedEvent_shouldLogNotification() {
+        Long eventId = 1L;
+        User user = mock(User.class);
+        when(user.getUsername()).thenReturn("testuser");
 
-        // Assert - Nothing to verify explicitly since this is just logging for now
-        // In a real implementation with a notification service, we would verify the service was called
+        Review review = Review.builder().eventId(eventId).user(user).build();
+        ReviewCreatedEvent event = new ReviewCreatedEvent(this, review);
+
+        // As this listener only logs, we are just testing that it runs without error.
+        // In a real scenario with a dedicated NotificationService, we would verify its interactions.
+        listener.handleReviewCreatedEvent(event);
+
+        // To verify logging, you would typically use a test appender or mock the logger.
+        // For this example, we ensure no exceptions are thrown and the method completes.
+        // verify(logger).info(anyString(), eq(eventId), eq("testuser")); // Example if logger was mocked
     }
 }
+
