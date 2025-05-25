@@ -24,24 +24,74 @@ public class NotificationServiceTest {
 
     private NotificationRepository notificationRepository;
     private UserService userService;
+    private AsyncNotificationService asyncNotificationService;
     private NotificationService notificationService;
 
     @BeforeEach
     public void setUp() {
         notificationRepository = mock(NotificationRepository.class);
         userService = mock(UserService.class);
-        notificationService = new NotificationService(notificationRepository, userService);
+        asyncNotificationService = mock(AsyncNotificationService.class);
+        notificationService = new NotificationService(notificationRepository, userService, asyncNotificationService);
     }
 
+    // ASYNC DELEGATION TESTS
     @Test
-    @DisplayName("Membuat notifikasi ketika status laporan berubah")
-    public void testOnStatusChanged() {
+    @DisplayName("Mendelegasikan pembuatan notifikasi status ke AsyncNotificationService")
+    public void testOnStatusChanged_DelegatesToAsync() {
         // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
         report.setId(UUID.randomUUID());
 
         // Act
         notificationService.onStatusChanged(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
+
+        // Assert
+        verify(asyncNotificationService).processStatusChangeNotificationsAsync(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
+        verify(notificationRepository, never()).save(any(Notification.class)); // Should not save directly
+    }
+
+    @Test
+    @DisplayName("Mendelegasikan pembuatan notifikasi respons ke AsyncNotificationService")
+    public void testOnResponseAdded_DelegatesToAsync() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(1L, "user@example.com", "ATTENDEE", "Response", report);
+
+        // Act
+        notificationService.onResponseAdded(report, response);
+
+        // Assert
+        verify(asyncNotificationService).processResponseNotificationsAsync(report, response);
+        verify(notificationRepository, never()).save(any(Notification.class)); // Should not save directly
+    }
+
+    @Test
+    @DisplayName("Mendelegasikan pembuatan notifikasi laporan baru ke AsyncNotificationService")
+    public void testNotifyNewReport_DelegatesToAsync() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
+        report.setId(UUID.randomUUID());
+
+        // Act
+        notificationService.notifyNewReport(report);
+
+        // Assert
+        verify(asyncNotificationService).processNewReportNotificationsAsync(report);
+        verify(notificationRepository, never()).save(any(Notification.class)); // Should not save directly
+    }
+
+    // SYNCHRONOUS FALLBACK TESTS
+    @Test
+    @DisplayName("Membuat notifikasi sinkron ketika status laporan berubah")
+    public void testOnStatusChangedSync() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
+        report.setId(UUID.randomUUID());
+
+        // Act
+        notificationService.onStatusChangedSync(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -51,11 +101,13 @@ public class NotificationServiceTest {
         assertEquals("Report Status Updated", notification.getTitle());
         assertEquals("STATUS_UPDATE", notification.getType());
         assertFalse(notification.isRead());
+        assertTrue(notification.getMessage().contains("Pending"));
+        assertTrue(notification.getMessage().contains("On Progress"));
     }
 
     @Test
-    @DisplayName("Memberi notifikasi ke admin dan organizer ketika attendee merespon laporan event")
-    public void testOnResponseAdded_AttendeeToStaff() {
+    @DisplayName("Memberi notifikasi sinkron ke admin dan organizer ketika attendee merespon laporan event")
+    public void testOnResponseAddedSync_AttendeeToStaff() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -67,22 +119,22 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("Memberi notifikasi ke attendee ketika staff merespon laporan")
-    public void testOnResponseAdded_StaffToAttendee() {
+    @DisplayName("Memberi notifikasi sinkron ke attendee ketika staff merespon laporan")
+    public void testOnResponseAddedSync_StaffToAttendee() {
         // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
         report.setId(UUID.randomUUID());
         ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -94,8 +146,8 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Memberi notifikasi ke organizer ketika admin merespon laporan event")
-    public void testOnResponseAdded_AdminToEventOrganizers() {
+    @DisplayName("Memberi notifikasi sinkron ke organizer ketika admin merespon laporan event")
+    public void testOnResponseAddedSync_AdminToEventOrganizers() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -105,15 +157,15 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("Menangani exception ketika memberi notifikasi ke organizer tentang respon admin")
-    public void testOnResponseAdded_AdminToEventOrganizers_WithException() {
+    @DisplayName("Menangani exception sinkron ketika memberi notifikasi ke organizer tentang respon admin")
+    public void testOnResponseAddedSync_AdminToEventOrganizers_WithException() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -123,15 +175,15 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenThrow(new RuntimeException("Failed to get organizer email"));
 
         // Act & Assert
-        assertDoesNotThrow(() -> notificationService.onResponseAdded(report, response));
+        assertDoesNotThrow(() -> notificationService.onResponseAddedSync(report, response));
 
         // Assert
         verify(notificationRepository, times(1)).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("Mengidentifikasi attendee berdasarkan userId ketika email berbeda")
-    public void testOnResponseAdded_AttendeeByUserId() {
+    @DisplayName("Mengidentifikasi attendee sinkron berdasarkan userId ketika email berbeda")
+    public void testOnResponseAddedSync_AttendeeByUserId() {
         // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -141,16 +193,16 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         verify(notificationRepository, times(1)).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("Memberi notifikasi ke organizer dengan fallback nama event ketika eventTitle null")
-    public void testOnResponseAdded_AttendeeToEventOrganizers_NullTitle() {
-        // Arrange - Test null eventTitle in notifyEventOrganizersOfResponse
+    @DisplayName("Memberi notifikasi sinkron ke organizer dengan fallback nama event ketika eventTitle null")
+    public void testOnResponseAddedSync_AttendeeToEventOrganizers_NullTitle() {
+        // Arrange
         Report report = new Report(1L, "user@example.com", 10L, null, ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
         ReportResponse response = new ReportResponse(1L, "user@example.com", "ATTENDEE", "Response", report);
@@ -161,7 +213,7 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -172,9 +224,9 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Memberi notifikasi admin ke organizer dengan fallback nama event ketika eventTitle null")
-    public void testOnResponseAdded_AdminToEventOrganizers_NullTitle() {
-        // Arrange - Test null eventTitle in notifyEventOrganizersOfAdminResponse
+    @DisplayName("Memberi notifikasi sinkron admin ke organizer dengan fallback nama event ketika eventTitle null")
+    public void testOnResponseAddedSync_AdminToEventOrganizers_NullTitle() {
+        // Arrange
         Report report = new Report(1L, "user@example.com", 10L, null, ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
         ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
@@ -183,7 +235,7 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -194,15 +246,15 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Tidak membuat notifikasi ketika respon dari role yang tidak dikenal")
-    public void testOnResponseAdded_UnknownRole() {
+    @DisplayName("Tidak membuat notifikasi sinkron ketika respon dari role yang tidak dikenal")
+    public void testOnResponseAddedSync_UnknownRole() {
         // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
         report.setId(UUID.randomUUID());
         ReportResponse response = new ReportResponse(99L, "unknown@example.com", "UNKNOWN_ROLE", "Unknown response", report);
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert - Should not save any notifications (neither attendee nor staff)
         verify(notificationRepository, never()).save(any(Notification.class));
@@ -211,15 +263,15 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Memberi notifikasi ke attendee ketika organizer merespon laporan")
-    public void testOnResponseAdded_OrganizerResponse() {
+    @DisplayName("Memberi notifikasi sinkron ke attendee ketika organizer merespon laporan")
+    public void testOnResponseAddedSync_OrganizerResponse() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
         ReportResponse response = new ReportResponse(3L, "organizer@example.com", "ORGANIZER", "Organizer response", report);
 
         // Act
-        notificationService.onResponseAdded(report, response);
+        notificationService.onResponseAddedSync(report, response);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -231,8 +283,8 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Menangani exception ketika memberi notifikasi ke organizer tentang respon attendee")
-    public void testOnResponseAdded_ExceptionHandling() {
+    @DisplayName("Menangani exception sinkron ketika memberi notifikasi ke organizer tentang respon attendee")
+    public void testOnResponseAddedSync_ExceptionHandling() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -244,13 +296,13 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenThrow(new RuntimeException("User not found"));
 
         // Act & Assert - Should not throw exception
-        assertDoesNotThrow(() -> notificationService.onResponseAdded(report, response));
+        assertDoesNotThrow(() -> notificationService.onResponseAddedSync(report, response));
         verify(notificationRepository, times(1)).save(any(Notification.class)); // Only admin notification
     }
 
     @Test
-    @DisplayName("Memberi notifikasi laporan baru ke admin untuk laporan umum")
-    public void testNotifyNewReport_GeneralReport() {
+    @DisplayName("Memberi notifikasi sinkron laporan baru ke admin untuk laporan umum")
+    public void testNotifyNewReportSync_GeneralReport() {
         // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -259,7 +311,7 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
 
         // Act
-        notificationService.notifyNewReport(report);
+        notificationService.notifyNewReportSync(report);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -272,8 +324,8 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Memberi notifikasi laporan baru ke admin dan organizer untuk laporan event")
-    public void testNotifyNewReport_EventReport() {
+    @DisplayName("Memberi notifikasi sinkron laporan baru ke admin dan organizer untuk laporan event")
+    public void testNotifyNewReportSync_EventReport() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event Title", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -284,7 +336,7 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.notifyNewReport(report);
+        notificationService.notifyNewReportSync(report);
 
         // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class)); // Admin + Organizer
@@ -296,8 +348,8 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Memberi notifikasi laporan event dengan fallback nama ketika eventTitle null")
-    public void testNotifyNewReport_EventReportWithoutTitle() {
+    @DisplayName("Memberi notifikasi sinkron laporan event dengan fallback nama ketika eventTitle null")
+    public void testNotifyNewReportSync_EventReportWithoutTitle() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, null, ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -308,7 +360,7 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        notificationService.notifyNewReport(report);
+        notificationService.notifyNewReportSync(report);
 
         // Assert
         ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
@@ -319,8 +371,8 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Tidak memanggil organizer ketika eventId null")
-    public void testNotifyNewReport_GeneralReportNullEventId() {
+    @DisplayName("Tidak memanggil organizer sinkron ketika eventId null")
+    public void testNotifyNewReportSync_GeneralReportNullEventId() {
         // Arrange
         Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -329,7 +381,7 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
 
         // Act
-        notificationService.notifyNewReport(report);
+        notificationService.notifyNewReportSync(report);
 
         // Assert
         verify(notificationRepository, times(1)).save(any(Notification.class)); // Only admin
@@ -337,8 +389,8 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Menangani exception ketika memberi notifikasi ke organizer tentang laporan baru")
-    public void testNotifyNewReport_ExceptionHandling() {
+    @DisplayName("Menangani exception sinkron ketika memberi notifikasi ke organizer tentang laporan baru")
+    public void testNotifyNewReportSync_ExceptionHandling() {
         // Arrange
         Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
@@ -349,10 +401,11 @@ public class NotificationServiceTest {
         when(userService.getUserEmail(3L)).thenThrow(new RuntimeException("Error"));
 
         // Act & Assert - Should not throw exception
-        assertDoesNotThrow(() -> notificationService.notifyNewReport(report));
+        assertDoesNotThrow(() -> notificationService.notifyNewReportSync(report));
         verify(notificationRepository, times(1)).save(any(Notification.class)); // Only admin
     }
 
+    // EXISTING SYNCHRONOUS READ OPERATIONS - These remain unchanged
     @Test
     @DisplayName("Mendapatkan notifikasi pengguna berdasarkan ID")
     public void testGetUserNotifications() {

@@ -29,21 +29,24 @@ public class ReportService {
     private final ReportRepository reportRepository;
     private final ReportResponseRepository responseRepository;
     private final NotificationService notificationService;
+    private final AsyncNotificationService asyncNotificationService;
     private final UserRepository userRepository;
-    private final EventService eventService; // ADD THIS
+    private final EventService eventService;
 
     @Autowired
     public ReportService(
             ReportRepository reportRepository,
             ReportResponseRepository responseRepository,
             NotificationService notificationService,
+            AsyncNotificationService asyncNotificationService,
             UserRepository userRepository,
-            EventService eventService) { // ADD THIS
+            EventService eventService) {
         this.reportRepository = reportRepository;
         this.responseRepository = responseRepository;
         this.notificationService = notificationService;
+        this.asyncNotificationService = asyncNotificationService;
         this.userRepository = userRepository;
-        this.eventService = eventService; // ADD THIS
+        this.eventService = eventService;
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
@@ -63,11 +66,16 @@ public class ReportService {
         report.setDescription(createRequest.getDescription());
         report.setStatus(ReportStatus.PENDING);
 
+        // Add notification service as observer
         report.getObservers().add(notificationService);
 
         Report savedReport = reportRepository.save(report);
 
-        notificationService.notifyNewReport(savedReport);
+        // Process notifications asynchronously
+        asyncNotificationService.processNewReportNotificationsAsync(savedReport);
+
+        // Optional: Legacy sync notification for critical systems (if needed)
+        // notificationService.notifyNewReportSync(savedReport);
 
         if (savedReport.getEventId() != null) {
             try {
@@ -178,20 +186,30 @@ public class ReportService {
     public ReportResponseDTO updateReportStatus(UUID reportId, ReportStatus newStatus) {
         Report report = findReportById(reportId);
 
+        // Ensure notification service is added as observer
         if (!report.getObservers().contains(notificationService)) {
             report.getObservers().add(notificationService);
         }
 
+        // Store old status for async notification
+        ReportStatus oldStatus = report.getStatus();
+
+        // Update status - this will trigger the observer pattern
         report.updateStatus(newStatus);
         report.setUpdatedAt(LocalDateTime.now());
 
         Report updatedReport = reportRepository.save(report);
+
+        // Process status change notifications asynchronously
+        asyncNotificationService.processStatusChangeNotificationsAsync(updatedReport, oldStatus, newStatus);
+
         return convertToResponseDTO(updatedReport);
     }
 
     public ReportCommentDTO addComment(UUID reportId, CreateReportCommentRequest commentRequest) {
         Report report = findReportById(reportId);
 
+        // Ensure notification service is added as observer
         if (!report.getObservers().contains(notificationService)) {
             report.getObservers().add(notificationService);
         }
@@ -205,13 +223,22 @@ public class ReportService {
         boolean isReportOwner = report.getUserEmail().equals(commentRequest.getResponderEmail()) ||
                 report.getUserId().equals(commentRequest.getResponderId());
 
+        // Add response to report - this will trigger the observer pattern
         report.addResponse(commentEntity);
         report.setUpdatedAt(LocalDateTime.now());
 
         ReportResponse savedComment = responseRepository.save(commentEntity);
 
+        // Process response notifications asynchronously
+        asyncNotificationService.processResponseNotificationsAsync(report, savedComment);
+
+        // Auto-update status if needed
         if (report.getStatus() == ReportStatus.PENDING && !isReportOwner) {
+            ReportStatus oldStatus = report.getStatus();
             report.updateStatus(ReportStatus.ON_PROGRESS);
+
+            // Process status change asynchronously
+            asyncNotificationService.processStatusChangeNotificationsAsync(report, oldStatus, ReportStatus.ON_PROGRESS);
         }
 
         reportRepository.save(report);

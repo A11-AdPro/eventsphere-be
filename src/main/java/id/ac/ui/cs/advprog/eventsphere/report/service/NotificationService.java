@@ -18,16 +18,39 @@ public class NotificationService implements ReportObserver {
 
     private final NotificationRepository notificationRepository;
     private final UserService userService;
+    private final AsyncNotificationService asyncNotificationService;
 
     @Autowired
     public NotificationService(NotificationRepository notificationRepository,
-                               UserService userService) {
+                               UserService userService,
+                               AsyncNotificationService asyncNotificationService) {
         this.notificationRepository = notificationRepository;
         this.userService = userService;
+        this.asyncNotificationService = asyncNotificationService;
+    }
+
+    // ASYNC METHODS - These methods now delegate to AsyncNotificationService
+    @Override
+    public void onStatusChanged(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
+        // Process asynchronously
+        asyncNotificationService.processStatusChangeNotificationsAsync(report, oldStatus, newStatus);
     }
 
     @Override
-    public void onStatusChanged(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
+    public void onResponseAdded(Report report, ReportResponse response) {
+        // Process asynchronously
+        asyncNotificationService.processResponseNotificationsAsync(report, response);
+    }
+
+    public void notifyNewReport(Report report) {
+        // Process asynchronously
+        asyncNotificationService.processNewReportNotificationsAsync(report);
+    }
+
+    // SYNCHRONOUS METHODS - These methods remain synchronous for immediate operations
+
+    // Synchronous fallback method for critical notifications (if needed)
+    public void onStatusChangedSync(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
         String title = "Report Status Updated";
         String message = String.format(
                 "Your report status has been updated from %s to %s.\n\n" +
@@ -52,8 +75,8 @@ public class NotificationService implements ReportObserver {
         notificationRepository.save(notification);
     }
 
-    @Override
-    public void onResponseAdded(Report report, ReportResponse response) {
+    // Synchronous fallback method for critical notifications (if needed)
+    public void onResponseAddedSync(Report report, ReportResponse response) {
         boolean isFromAttendee = report.getUserEmail().equals(response.getResponderEmail()) ||
                 report.getUserId().equals(response.getResponderId());
 
@@ -61,53 +84,57 @@ public class NotificationService implements ReportObserver {
                 "ORGANIZER".equals(response.getResponderRole());
 
         if (isFromAttendee) {
-            notifyAdminsOfResponse(report, response);
+            notifyAdminsOfResponseSync(report, response);
 
             if (report.getEventId() != null) {
-                notifyEventOrganizersOfResponse(report, response);
+                notifyEventOrganizersOfResponseSync(report, response);
             }
         }
         else if (isFromStaff) {
-            notifyAttendeeOfResponse(report, response);
+            notifyAttendeeOfResponseSync(report, response);
 
             if (report.getEventId() != null && "ADMIN".equals(response.getResponderRole())) {
-                notifyEventOrganizersOfAdminResponse(report, response);
+                notifyEventOrganizersOfAdminResponseSync(report, response);
             }
         }
     }
 
-    private void notifyAdminsOfResponse(Report report, ReportResponse response) {
+    private void notifyAdminsOfResponseSync(Report report, ReportResponse response) {
         List<Long> adminIds = userService.getAdminIds();
 
         for (Long adminId : adminIds) {
-            String adminEmail = userService.getUserEmail(adminId);
-            String title = "New Response to Report";
-            String message = String.format(
-                    "The attendee has responded to report #%s:\n\n" +
-                            "Message: %s\n\n" +
-                            "Category: %s\n" +
-                            "Status: %s",
-                    report.getId().toString().substring(0, 8),
-                    response.getMessage(),
-                    report.getCategory().getDisplayName(),
-                    report.getStatus().getDisplayName()
-            );
+            try {
+                String adminEmail = userService.getUserEmail(adminId);
+                String title = "New Response to Report";
+                String message = String.format(
+                        "The attendee has responded to report #%s:\n\n" +
+                                "Message: %s\n\n" +
+                                "Category: %s\n" +
+                                "Status: %s",
+                        report.getId().toString().substring(0, 8),
+                        response.getMessage(),
+                        report.getCategory().getDisplayName(),
+                        report.getStatus().getDisplayName()
+                );
 
-            Notification notification = new Notification(
-                    adminId,
-                    adminEmail,
-                    "ATTENDEE",
-                    title,
-                    message,
-                    "NEW_RESPONSE",
-                    report.getId()
-            );
+                Notification notification = new Notification(
+                        adminId,
+                        adminEmail,
+                        "ATTENDEE",
+                        title,
+                        message,
+                        "NEW_RESPONSE",
+                        report.getId()
+                );
 
-            notificationRepository.save(notification);
+                notificationRepository.save(notification);
+            } catch (Exception e) {
+                System.err.println("Failed to notify admin " + adminId + ": " + e.getMessage());
+            }
         }
     }
 
-    private void notifyAttendeeOfResponse(Report report, ReportResponse response) {
+    private void notifyAttendeeOfResponseSync(Report report, ReportResponse response) {
         String title = "Response to Your Report";
         String message = String.format(
                 "A staff member has responded to your report #%s:\n\n" +
@@ -135,59 +162,64 @@ public class NotificationService implements ReportObserver {
         notificationRepository.save(notification);
     }
 
-    public void notifyNewReport(Report report) {
-        notifyAdminsOfNewReport(report);
+    // Synchronous fallback method for critical notifications (if needed)
+    public void notifyNewReportSync(Report report) {
+        notifyAdminsOfNewReportSync(report);
 
         if (report.getEventId() != null) {
-            notifyEventOrganizersOfNewReport(report);
+            notifyEventOrganizersOfNewReportSync(report);
         }
     }
 
-    private void notifyAdminsOfNewReport(Report report) {
+    private void notifyAdminsOfNewReportSync(Report report) {
         List<Long> adminIds = userService.getAdminIds();
 
         for (Long adminId : adminIds) {
-            String adminEmail = userService.getUserEmail(adminId);
-            String title = "New Report Submitted";
-            String message;
+            try {
+                String adminEmail = userService.getUserEmail(adminId);
+                String title = "New Report Submitted";
+                String message;
 
-            if (report.getEventId() != null && report.getEventTitle() != null) {
-                message = String.format(
-                        "A new event-related report has been submitted:\n\n" +
-                                "Event: %s\n" +
-                                "Category: %s\n" +
-                                "Description: %s\n\n" +
-                                "Please review this report in the admin dashboard.",
-                        report.getEventTitle(),
-                        report.getCategory().getDisplayName(),
-                        report.getDescription()
+                if (report.getEventId() != null && report.getEventTitle() != null) {
+                    message = String.format(
+                            "A new event-related report has been submitted:\n\n" +
+                                    "Event: %s\n" +
+                                    "Category: %s\n" +
+                                    "Description: %s\n\n" +
+                                    "Please review this report in the admin dashboard.",
+                            report.getEventTitle(),
+                            report.getCategory().getDisplayName(),
+                            report.getDescription()
+                    );
+                } else {
+                    message = String.format(
+                            "A new general report has been submitted:\n\n" +
+                                    "Category: %s\n" +
+                                    "Description: %s\n\n" +
+                                    "Please review this report in the admin dashboard.",
+                            report.getCategory().getDisplayName(),
+                            report.getDescription()
+                    );
+                }
+
+                Notification notification = new Notification(
+                        adminId,
+                        adminEmail,
+                        "SYSTEM",
+                        title,
+                        message,
+                        "NEW_REPORT",
+                        report.getId()
                 );
-            } else {
-                message = String.format(
-                        "A new general report has been submitted:\n\n" +
-                                "Category: %s\n" +
-                                "Description: %s\n\n" +
-                                "Please review this report in the admin dashboard.",
-                        report.getCategory().getDisplayName(),
-                        report.getDescription()
-                );
+
+                notificationRepository.save(notification);
+            } catch (Exception e) {
+                System.err.println("Failed to notify admin " + adminId + ": " + e.getMessage());
             }
-
-            Notification notification = new Notification(
-                    adminId,
-                    adminEmail,
-                    "SYSTEM",
-                    title,
-                    message,
-                    "NEW_REPORT",
-                    report.getId()
-            );
-
-            notificationRepository.save(notification);
         }
     }
 
-    private void notifyEventOrganizersOfNewReport(Report report) {
+    private void notifyEventOrganizersOfNewReportSync(Report report) {
         List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
         for (Long organizerId : organizerIds) {
@@ -224,7 +256,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
-    private void notifyEventOrganizersOfResponse(Report report, ReportResponse response) {
+    private void notifyEventOrganizersOfResponseSync(Report report, ReportResponse response) {
         List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
         for (Long organizerId : organizerIds) {
@@ -263,7 +295,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
-    private void notifyEventOrganizersOfAdminResponse(Report report, ReportResponse response) {
+    private void notifyEventOrganizersOfAdminResponseSync(Report report, ReportResponse response) {
         List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
         for (Long organizerId : organizerIds) {
@@ -304,6 +336,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
+    // EXISTING SYNCHRONOUS METHODS - These remain unchanged for immediate read operations
     public List<Notification> getUserNotifications(Long userId) {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
     }

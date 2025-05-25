@@ -33,6 +33,7 @@ public class ReportServiceTest {
     private ReportRepository reportRepository;
     private ReportResponseRepository responseRepository;
     private NotificationService notificationService;
+    private AsyncNotificationService asyncNotificationService;
     private UserRepository userRepository;
     private EventService eventService;
     private ReportService reportService;
@@ -42,6 +43,7 @@ public class ReportServiceTest {
         reportRepository = mock(ReportRepository.class);
         responseRepository = mock(ReportResponseRepository.class);
         notificationService = mock(NotificationService.class);
+        asyncNotificationService = mock(AsyncNotificationService.class);
         userRepository = mock(UserRepository.class);
         eventService = mock(EventService.class);
 
@@ -49,6 +51,7 @@ public class ReportServiceTest {
                 reportRepository,
                 responseRepository,
                 notificationService,
+                asyncNotificationService,
                 userRepository,
                 eventService
         );
@@ -76,7 +79,8 @@ public class ReportServiceTest {
         // Assert
         assertEquals("user@example.com", result.getUserEmail());
         assertEquals(ReportStatus.PENDING, result.getStatus());
-        verify(notificationService).notifyNewReport(any(Report.class));
+        verify(asyncNotificationService).processNewReportNotificationsAsync(any(Report.class));
+        verify(notificationService, never()).notifyNewReport(any(Report.class)); // Should not call sync method
     }
 
     @Test
@@ -105,6 +109,7 @@ public class ReportServiceTest {
         // Assert
         assertEquals("found@example.com", result.getUserEmail());
         verify(userRepository).findById(1L);
+        verify(asyncNotificationService).processNewReportNotificationsAsync(any(Report.class));
     }
 
     @Test
@@ -158,6 +163,7 @@ public class ReportServiceTest {
         assertEquals(10L, result.getEventId());
         verify(eventService).getActiveEventById(10L);
         verify(userRepository).findById(5L);
+        verify(asyncNotificationService).processNewReportNotificationsAsync(any(Report.class));
     }
 
     @Test
@@ -180,6 +186,7 @@ public class ReportServiceTest {
 
         // Act & Assert
         assertDoesNotThrow(() -> reportService.createReport(request));
+        verify(asyncNotificationService).processNewReportNotificationsAsync(any(Report.class));
     }
 
     @Test
@@ -206,6 +213,7 @@ public class ReportServiceTest {
 
         // Act & Assert
         assertDoesNotThrow(() -> reportService.createReport(request));
+        verify(asyncNotificationService).processNewReportNotificationsAsync(any(Report.class));
     }
 
     @Test
@@ -232,6 +240,7 @@ public class ReportServiceTest {
 
         // Act & Assert - Should not throw exception
         assertDoesNotThrow(() -> reportService.createReport(request));
+        verify(asyncNotificationService).processNewReportNotificationsAsync(any(Report.class));
     }
 
     @Test
@@ -462,7 +471,7 @@ public class ReportServiceTest {
     }
 
     @Test
-    @DisplayName("Memperbarui status laporan")
+    @DisplayName("Memperbarui status laporan dengan notifikasi asinkron")
     public void testUpdateReportStatus() {
         // Arrange
         UUID reportId = UUID.randomUUID();
@@ -480,6 +489,7 @@ public class ReportServiceTest {
         assertEquals(ReportStatus.ON_PROGRESS, result.getStatus());
         assertNotNull(result.getUpdatedAt());
         verify(reportRepository).save(report);
+        verify(asyncNotificationService).processStatusChangeNotificationsAsync(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
     }
 
     @Test
@@ -499,6 +509,7 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(1, report.getObservers().size()); // Should not add duplicate
+        verify(asyncNotificationService).processStatusChangeNotificationsAsync(any(Report.class), any(ReportStatus.class), eq(ReportStatus.ON_PROGRESS));
     }
 
     @Test
@@ -528,6 +539,7 @@ public class ReportServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(ReportStatus.PENDING, report.getStatus()); // Should remain pending for owner
+        verify(asyncNotificationService).processResponseNotificationsAsync(eq(report), any(ReportResponse.class));
     }
 
     @Test
@@ -559,10 +571,11 @@ public class ReportServiceTest {
         // Assert
         assertNotNull(result);
         assertEquals(ReportStatus.PENDING, report.getStatus()); // Should remain pending for owner
+        verify(asyncNotificationService).processResponseNotificationsAsync(eq(report), any(ReportResponse.class));
     }
 
     @Test
-    @DisplayName("Menambah komentar dari non-owner mengubah status ke ON_PROGRESS")
+    @DisplayName("Menambah komentar dari non-owner mengubah status ke ON_PROGRESS dengan notifikasi asinkron")
     public void testAddComment_NonOwner_StatusChange() {
         // Arrange
         UUID reportId = UUID.randomUUID();
@@ -589,6 +602,8 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus()); // Should change to ON_PROGRESS
+        verify(asyncNotificationService).processResponseNotificationsAsync(eq(report), any(ReportResponse.class));
+        verify(asyncNotificationService).processStatusChangeNotificationsAsync(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
     }
 
     @Test
@@ -619,6 +634,9 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(ReportStatus.ON_PROGRESS, report.getStatus()); // Should remain ON_PROGRESS
+        verify(asyncNotificationService).processResponseNotificationsAsync(eq(report), any(ReportResponse.class));
+        // Should not call status change notification since status didn't change
+        verify(asyncNotificationService, never()).processStatusChangeNotificationsAsync(eq(report), eq(ReportStatus.ON_PROGRESS), eq(ReportStatus.ON_PROGRESS));
     }
 
     @Test
@@ -651,6 +669,7 @@ public class ReportServiceTest {
 
         // Assert
         assertEquals(1, report.getObservers().size()); // Should not add duplicate
+        verify(asyncNotificationService).processResponseNotificationsAsync(eq(report), any(ReportResponse.class));
     }
 
     @Test

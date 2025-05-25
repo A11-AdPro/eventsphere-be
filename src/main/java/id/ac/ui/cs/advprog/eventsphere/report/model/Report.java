@@ -62,7 +62,6 @@ public class Report {
         this.description = description;
     }
 
-    // ADD THIS: Constructor with event info
     public Report(Long userId, String userEmail, Long eventId, String eventTitle, ReportCategory category, String description) {
         this.userId = userId;
         this.userEmail = userEmail;
