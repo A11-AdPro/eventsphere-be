@@ -12,8 +12,6 @@ import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
-import io.micrometer.core.instrument.Counter;
-
 
 @Service
 @RequiredArgsConstructor
@@ -23,36 +21,27 @@ public class AuthServiceImpl implements AuthService {
     private final PasswordEncoder passwordEncoder;
     private final AuthenticationManager authenticationManager;
     private final JwtTokenProvider jwtTokenProvider;
-    private final Counter loginSuccessCounter;
-    private final Counter loginFailureCounter;
 
     @Override
     public JwtResponse login(LoginRequest loginRequest) {
-        try {
-            Authentication authentication = authenticationManager.authenticate(
-                    new UsernamePasswordAuthenticationToken(
-                            loginRequest.getEmail(),
-                            loginRequest.getPassword()
-                    )
-            );
+        Authentication authentication = authenticationManager.authenticate(
+                new UsernamePasswordAuthenticationToken(
+                        loginRequest.getEmail(),
+                        loginRequest.getPassword()
+                )
+        );
 
-            SecurityContextHolder.getContext().setAuthentication(authentication);
-            String jwt = jwtTokenProvider.generateToken(authentication);
+        SecurityContextHolder.getContext().setAuthentication(authentication);
+        String jwt = jwtTokenProvider.generateToken(authentication);
 
-            User user = userRepository.findByEmail(loginRequest.getEmail())
-                    .orElseThrow(() -> new RuntimeException("User not found"));
+        User user = userRepository.findByEmail(loginRequest.getEmail())
+                .orElseThrow(() -> new RuntimeException("User not found"));
 
-            loginSuccessCounter.increment();
-
-            return JwtResponse.builder()
-                    .token(jwt)
-                    .email(user.getEmail())
-                    .role(user.getRole())
-                    .build();
-        } catch (Exception e) {
-            loginFailureCounter.increment();
-            throw e;
-        }
+        return JwtResponse.builder()
+                .token(jwt)
+                .email(user.getEmail())
+                .role(user.getRole())
+                .build();
     }
 
     @Override
