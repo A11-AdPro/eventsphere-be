@@ -55,7 +55,7 @@ public class TicketController {
     }
 
     @GetMapping
-    @PreAuthorize("hasRole('ATTENDEE')")
+    @PreAuthorize("hasRole('ROLE_ATTENDEE') or hasRole('ROLE_ORGANIZER') or hasRole('ROLE_ADMIN')")
     public ResponseEntity<List<TicketResponse>> listAvailableTickets() {
         List<TicketResponse> tickets = ticketService.getAvailableTickets();
         return ResponseEntity.ok(tickets);

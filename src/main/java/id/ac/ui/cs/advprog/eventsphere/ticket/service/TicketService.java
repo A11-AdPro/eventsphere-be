@@ -26,4 +26,3 @@ public interface TicketService {
     // Mendapatkan tiket by id, sync
     TicketResponse getTicketById(Long id);
 }
-
