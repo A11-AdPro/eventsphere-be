@@ -65,6 +65,7 @@
 ![Image](https://github.com/user-attachments/assets/f522a0d1-3a6f-4043-b0cd-c516844e0989)
 
 ## Payment and Balance Management Architecture Overview
+Patricia Herningtyas - 2306152241
 
 #### Controllers Layer
 - TopUpController: Handles REST API endpoints for top-up operations and balance queries
@@ -99,6 +100,14 @@
 
 ### Code Diagram Diagram Payment and Balance Management
 ![alt text](/diagrams/image-4.png)
+
+### Monitoring
+![alt text](/image/monitoring.png)
+
+### Profiling
+![alt text](/image/profiling_pembayaran_saldo.png)
+
+
 ## [Muhammad Almerazka Yocendra](https://github.com/almerazka) - 2306241745
 
 ### Laporan dan Pengajuan Bantuan (🙋 / 💻 / 🕺) 
