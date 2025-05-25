@@ -118,9 +118,4 @@ jobs:
               --restart always \
               ${{ secrets.DOCKER_HUB_USERNAME }}/${{ secrets.DOCKER_HUB_REPO_NAME }}:latest
             
-            # Run Docker Compose for Monitoring (Prometheus, Grafana)
-            cd /home/ubuntu/monitoring
-            docker-compose down
-            docker-compose up -d
-
             docker ps
