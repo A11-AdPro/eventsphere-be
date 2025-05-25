@@ -14,7 +14,9 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
 import java.util.stream.Collectors;
+import lombok.extern.slf4j.Slf4j;
 
+@Slf4j
 @Service
 @RequiredArgsConstructor
 public class TicketServiceImpl implements TicketService {
@@ -45,24 +47,28 @@ public class TicketServiceImpl implements TicketService {
 
     @Override
     public TicketResponse updateTicket(Long id, TicketRequest request, User organizer) {
-        try {
-            if (!Role.ORGANIZER.equals(organizer.getRole())) {
-                throw new RuntimeException("Hanya organizer yang dapat mengupdate tiket.");
-            }
+        log.info("Request update tiket ID {} oleh user '{}'", id, organizer.getUsername());
 
+        if (!Role.ORGANIZER.equals(organizer.getRole())) {
+            log.warn("User '{}' tidak memiliki hak akses update tiket", organizer.getUsername());
+            throw new RuntimeException("Hanya organizer yang dapat mengupdate tiket.");
+        }
+
+        try {
             Ticket ticket = repo.findById(id).orElseThrow(TicketNotFoundException::new);
             ticket.setName(request.getName());
             ticket.setCategory(request.getCategory());
+
             Event event = eventRepository.findById(request.getEventId())
                     .orElseThrow(() -> new EventNotFoundException("Event not found with ID: " + request.getEventId()));
             ticket.setEvent(event);
             ticket.updateDetails(request.getPrice(), request.getQuota());
 
+            log.info("Berhasil update tiket ID {}", id);
             return toResponse(repo.save(ticket));
         } catch (Exception e) {
-            System.err.println("Error updating ticket: " + e.getMessage());
-            e.printStackTrace();
-            throw e; // rethrow biar tetap error, tapi kita bisa lihat log dulu
+            log.error("Gagal update tiket ID {}: {}", id, e.getMessage(), e);
+            throw e;
         }
     }
 
