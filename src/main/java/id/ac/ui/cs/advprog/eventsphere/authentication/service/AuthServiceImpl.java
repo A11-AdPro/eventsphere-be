@@ -5,6 +5,7 @@ import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
 import id.ac.ui.cs.advprog.eventsphere.authentication.security.JwtTokenProvider;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
@@ -15,6 +16,7 @@ import org.springframework.stereotype.Service;
 
 @Service
 @RequiredArgsConstructor
+@Slf4j
 public class AuthServiceImpl implements AuthService {
 
     private final UserRepository userRepository;
@@ -24,29 +26,43 @@ public class AuthServiceImpl implements AuthService {
 
     @Override
     public JwtResponse login(LoginRequest loginRequest) {
-        Authentication authentication = authenticationManager.authenticate(
-                new UsernamePasswordAuthenticationToken(
-                        loginRequest.getEmail(),
-                        loginRequest.getPassword()
-                )
-        );
+        String email = loginRequest.getEmail();
+        log.debug("Authenticating user: {}", email);
+        
+        try {
+            Authentication authentication = authenticationManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(
+                            loginRequest.getEmail(),
+                            loginRequest.getPassword()
+                    )
+            );
 
-        SecurityContextHolder.getContext().setAuthentication(authentication);
-        String jwt = jwtTokenProvider.generateToken(authentication);
+            SecurityContextHolder.getContext().setAuthentication(authentication);
+            String jwt = jwtTokenProvider.generateToken(authentication);
 
-        User user = userRepository.findByEmail(loginRequest.getEmail())
-                .orElseThrow(() -> new RuntimeException("User not found"));
+            User user = userRepository.findByEmail(loginRequest.getEmail())
+                    .orElseThrow(() -> new RuntimeException("User not found"));
 
-        return JwtResponse.builder()
-                .token(jwt)
-                .email(user.getEmail())
-                .role(user.getRole())
-                .build();
+            log.debug("Login successful for user: {}", email);
+            return JwtResponse.builder()
+                    .token(jwt)
+                    .email(user.getEmail())
+                    .role(user.getRole())
+                    .build();
+                    
+        } catch (Exception e) {
+            log.warn("Login failed for user: {} - {}", email, e.getMessage());
+            throw e;
+        }
     }
 
     @Override
     public User register(RegisterRequest registerRequest) {
+        String email = registerRequest.getEmail();
+        log.debug("Registering user: {}", email);
+        
         if (userRepository.existsByEmail(registerRequest.getEmail())) {
+            log.warn("Registration failed - email already exists: {}", email);
             throw new RuntimeException("Email already in use");
         }
 
@@ -56,7 +72,9 @@ public class AuthServiceImpl implements AuthService {
         user.setFullName(registerRequest.getFullName());
         user.setRole(registerRequest.getRole());
 
-        return userRepository.save(user);
+        User savedUser = userRepository.save(user);
+        log.debug("Registration successful for user: {}", email);
+        return savedUser;
     }
 
     @Override
