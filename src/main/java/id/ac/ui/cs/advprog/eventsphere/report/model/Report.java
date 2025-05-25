@@ -26,6 +26,12 @@ public class Report {
     @Column(name = "user_email")
     private String userEmail;
 
+    @Column(name = "event_id")
+    private Long eventId;
+
+    @Column(name = "event_title")
+    private String eventTitle;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private ReportCategory category;
@@ -52,6 +58,16 @@ public class Report {
     public Report(Long userId, String userEmail, ReportCategory category, String description) {
         this.userId = userId;
         this.userEmail = userEmail;
+        this.category = category;
+        this.description = description;
+    }
+
+    // ADD THIS: Constructor with event info
+    public Report(Long userId, String userEmail, Long eventId, String eventTitle, ReportCategory category, String description) {
+        this.userId = userId;
+        this.userEmail = userEmail;
+        this.eventId = eventId;
+        this.eventTitle = eventTitle;
         this.category = category;
         this.description = description;
     }

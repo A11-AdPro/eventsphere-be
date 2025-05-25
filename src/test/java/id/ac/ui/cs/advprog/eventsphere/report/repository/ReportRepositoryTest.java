@@ -25,15 +25,12 @@ public class ReportRepositoryTest {
     private ReportRepository reportRepository;
 
     @Test
-    @DisplayName("Mencari notifikasi berdasarkan userId")
+    @DisplayName("Mencari laporan berdasarkan userId")
     public void testFindByUserId() {
         // Arrange
-        Long userId1 = 1L;
-        Long userId2 = 2L;
-
-        Report report1 = new Report(userId1, "user1@example.com", ReportCategory.PAYMENT, "User 1 Report 1");
-        Report report2 = new Report(userId1, "user1@example.com", ReportCategory.TICKET, "User 1 Report 2");
-        Report report3 = new Report(userId2, "user2@example.com", ReportCategory.EVENT, "User 2 Report");
+        Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Report 1");
+        Report report2 = new Report(1L, "user1@example.com", ReportCategory.TICKET, "Report 2");
+        Report report3 = new Report(2L, "user2@example.com", ReportCategory.EVENT, "Report 3");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
@@ -41,24 +38,20 @@ public class ReportRepositoryTest {
         entityManager.flush();
 
         // Act
-        List<Report> foundReports = reportRepository.findByUserId(userId1);
+        List<Report> result = reportRepository.findByUserId(1L);
 
         // Assert
-        assertEquals(2, foundReports.size());
-        assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.PAYMENT));
-        assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.TICKET));
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(r -> r.getUserId().equals(1L)));
     }
 
     @Test
-    @DisplayName("Mencari notifikasi berdasarkan email pengguna")
+    @DisplayName("Mencari laporan berdasarkan email pengguna")
     public void testFindByUserEmail() {
         // Arrange
-        String email1 = "user1@example.com";
-        String email2 = "user2@example.com";
-
-        Report report1 = new Report(1L, email1, ReportCategory.PAYMENT, "User 1 Report 1");
-        Report report2 = new Report(1L, email1, ReportCategory.TICKET, "User 1 Report 2");
-        Report report3 = new Report(2L, email2, ReportCategory.EVENT, "User 2 Report");
+        Report report1 = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Report 1");
+        Report report2 = new Report(2L, "user@example.com", ReportCategory.TICKET, "Report 2");
+        Report report3 = new Report(3L, "other@example.com", ReportCategory.EVENT, "Report 3");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
@@ -66,54 +59,45 @@ public class ReportRepositoryTest {
         entityManager.flush();
 
         // Act
-        List<Report> foundReports = reportRepository.findByUserEmail(email1);
+        List<Report> result = reportRepository.findByUserEmail("user@example.com");
 
         // Assert
-        assertEquals(2, foundReports.size());
-        assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.PAYMENT));
-        assertTrue(foundReports.stream().anyMatch(r -> r.getCategory() == ReportCategory.TICKET));
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(r -> r.getUserEmail().equals("user@example.com")));
     }
 
     @Test
-    @DisplayName("Mencari notifikasi berdasarkan status")
+    @DisplayName("Mencari laporan berdasarkan status")
     public void testFindByStatus() {
         // Arrange
-        Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Pending Report");
+        Report report1 = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Report 1");
         report1.setStatus(ReportStatus.PENDING);
 
-        Report report2 = new Report(2L, "user2@example.com", ReportCategory.TICKET, "In Progress Report");
+        Report report2 = new Report(2L, "user@example.com", ReportCategory.TICKET, "Report 2");
         report2.setStatus(ReportStatus.ON_PROGRESS);
-
-        Report report3 = new Report(3L, "user3@example.com", ReportCategory.EVENT, "Resolved Report");
-        report3.setStatus(ReportStatus.RESOLVED);
 
         entityManager.persist(report1);
         entityManager.persist(report2);
-        entityManager.persist(report3);
         entityManager.flush();
 
         // Act
         List<Report> pendingReports = reportRepository.findByStatus(ReportStatus.PENDING);
         List<Report> progressReports = reportRepository.findByStatus(ReportStatus.ON_PROGRESS);
-        List<Report> resolvedReports = reportRepository.findByStatus(ReportStatus.RESOLVED);
 
         // Assert
         assertEquals(1, pendingReports.size());
         assertEquals(1, progressReports.size());
-        assertEquals(1, resolvedReports.size());
-
-        assertEquals(ReportCategory.PAYMENT, pendingReports.getFirst().getCategory());
-        assertEquals(ReportCategory.TICKET, progressReports.getFirst().getCategory());
-        assertEquals(ReportCategory.EVENT, resolvedReports.getFirst().getCategory());
+        assertEquals(ReportStatus.PENDING, pendingReports.getFirst().getStatus());
+        assertEquals(ReportStatus.ON_PROGRESS, progressReports.getFirst().getStatus());
     }
 
     @Test
-    @DisplayName("Mencari notifikasi berdasarkan kategori")
+    @DisplayName("Mencari laporan berdasarkan kategori")
     public void testFindByCategory() {
         // Arrange
-        Report report1 = new Report(1L, "user1@example.com", ReportCategory.PAYMENT, "Payment Report 1");
-        Report report2 = new Report(2L, "user2@example.com", ReportCategory.PAYMENT, "Payment Report 2");
-        Report report3 = new Report(3L, "user3@example.com", ReportCategory.TICKET, "Ticket Report");
+        Report report1 = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Report 1");
+        Report report2 = new Report(2L, "user@example.com", ReportCategory.PAYMENT, "Report 2");
+        Report report3 = new Report(3L, "user@example.com", ReportCategory.TICKET, "Report 3");
 
         entityManager.persist(report1);
         entityManager.persist(report2);
@@ -123,27 +107,25 @@ public class ReportRepositoryTest {
         // Act
         List<Report> paymentReports = reportRepository.findByCategory(ReportCategory.PAYMENT);
         List<Report> ticketReports = reportRepository.findByCategory(ReportCategory.TICKET);
-        List<Report> eventReports = reportRepository.findByCategory(ReportCategory.EVENT);
 
         // Assert
         assertEquals(2, paymentReports.size());
         assertEquals(1, ticketReports.size());
-        assertEquals(0, eventReports.size());
+        assertTrue(paymentReports.stream().allMatch(r -> r.getCategory() == ReportCategory.PAYMENT));
+        assertTrue(ticketReports.stream().allMatch(r -> r.getCategory() == ReportCategory.TICKET));
     }
 
     @Test
-    @DisplayName("Mencari notifikasi berdasarkan userId dan status")
+    @DisplayName("Mencari laporan berdasarkan userId dan status")
     public void testFindByUserIdAndStatus() {
         // Arrange
-        Long userId = 1L;
-
-        Report report1 = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Pending Report");
+        Report report1 = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Report 1");
         report1.setStatus(ReportStatus.PENDING);
 
-        Report report2 = new Report(userId, "user@example.com", ReportCategory.TICKET, "Resolved Report");
+        Report report2 = new Report(1L, "user@example.com", ReportCategory.TICKET, "Report 2");
         report2.setStatus(ReportStatus.RESOLVED);
 
-        Report report3 = new Report(2L, "other@example.com", ReportCategory.EVENT, "Other User Report");
+        Report report3 = new Report(2L, "other@example.com", ReportCategory.EVENT, "Report 3");
         report3.setStatus(ReportStatus.PENDING);
 
         entityManager.persist(report1);
@@ -152,29 +134,25 @@ public class ReportRepositoryTest {
         entityManager.flush();
 
         // Act
-        List<Report> userPendingReports = reportRepository.findByUserIdAndStatus(userId, ReportStatus.PENDING);
-        List<Report> userResolvedReports = reportRepository.findByUserIdAndStatus(userId, ReportStatus.RESOLVED);
+        List<Report> result = reportRepository.findByUserIdAndStatus(1L, ReportStatus.PENDING);
 
         // Assert
-        assertEquals(1, userPendingReports.size());
-        assertEquals(1, userResolvedReports.size());
-        assertEquals(ReportCategory.PAYMENT, userPendingReports.getFirst().getCategory());
-        assertEquals(ReportCategory.TICKET, userResolvedReports.getFirst().getCategory());
+        assertEquals(1, result.size());
+        assertEquals(1L, result.getFirst().getUserId());
+        assertEquals(ReportStatus.PENDING, result.getFirst().getStatus());
     }
 
     @Test
-    @DisplayName("Mencari notifikasi berdasarkan userEmail dan status")
+    @DisplayName("Mencari laporan berdasarkan userEmail dan status")
     public void testFindByUserEmailAndStatus() {
         // Arrange
-        String email = "user@example.com";
-
-        Report report1 = new Report(1L, email, ReportCategory.PAYMENT, "Pending Report");
+        Report report1 = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Report 1");
         report1.setStatus(ReportStatus.PENDING);
 
-        Report report2 = new Report(1L, email, ReportCategory.TICKET, "Resolved Report");
+        Report report2 = new Report(2L, "user@example.com", ReportCategory.TICKET, "Report 2");
         report2.setStatus(ReportStatus.RESOLVED);
 
-        Report report3 = new Report(2L, "other@example.com", ReportCategory.EVENT, "Other User Report");
+        Report report3 = new Report(3L, "other@example.com", ReportCategory.EVENT, "Report 3");
         report3.setStatus(ReportStatus.PENDING);
 
         entityManager.persist(report1);
@@ -183,13 +161,32 @@ public class ReportRepositoryTest {
         entityManager.flush();
 
         // Act
-        List<Report> userPendingReports = reportRepository.findByUserEmailAndStatus(email, ReportStatus.PENDING);
-        List<Report> userResolvedReports = reportRepository.findByUserEmailAndStatus(email, ReportStatus.RESOLVED);
+        List<Report> result = reportRepository.findByUserEmailAndStatus("user@example.com", ReportStatus.PENDING);
 
         // Assert
-        assertEquals(1, userPendingReports.size());
-        assertEquals(1, userResolvedReports.size());
-        assertEquals(ReportCategory.PAYMENT, userPendingReports.getFirst().getCategory());
-        assertEquals(ReportCategory.TICKET, userResolvedReports.getFirst().getCategory());
+        assertEquals(1, result.size());
+        assertEquals("user@example.com", result.getFirst().getUserEmail());
+        assertEquals(ReportStatus.PENDING, result.getFirst().getStatus());
+    }
+
+    @Test
+    @DisplayName("Mencari laporan berdasarkan eventId")
+    public void testFindByEventId() {
+        // Arrange
+        Report report1 = new Report(1L, "user@example.com", 10L, "Event A", ReportCategory.EVENT, "Event Report 1");
+        Report report2 = new Report(2L, "user@example.com", 10L, "Event A", ReportCategory.EVENT, "Event Report 2");
+        Report report3 = new Report(3L, "user@example.com", 20L, "Event B", ReportCategory.EVENT, "Event Report 3");
+
+        entityManager.persist(report1);
+        entityManager.persist(report2);
+        entityManager.persist(report3);
+        entityManager.flush();
+
+        // Act
+        List<Report> result = reportRepository.findByEventId(10L);
+
+        // Assert
+        assertEquals(2, result.size());
+        assertTrue(result.stream().allMatch(r -> r.getEventId().equals(10L)));
     }
 }

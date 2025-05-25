@@ -14,6 +14,8 @@ public class ReportResponseDTO {
     private UUID id;
     private Long userId;
     private String userEmail;
+    private Long eventId;
+    private String eventTitle;
     private ReportCategory category;
     private String description;
     private ReportStatus status;

@@ -2,6 +2,8 @@ package id.ac.ui.cs.advprog.eventsphere.report.service;
 
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.event.service.EventService;
+import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportCommentRequest;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportRequest;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.response.ReportCommentDTO;
@@ -28,21 +30,23 @@ public class ReportService {
     private final ReportResponseRepository responseRepository;
     private final NotificationService notificationService;
     private final UserRepository userRepository;
+    private final EventService eventService; // ADD THIS
 
     @Autowired
     public ReportService(
             ReportRepository reportRepository,
             ReportResponseRepository responseRepository,
             NotificationService notificationService,
-            UserRepository userRepository) {
+            UserRepository userRepository,
+            EventService eventService) { // ADD THIS
         this.reportRepository = reportRepository;
         this.responseRepository = responseRepository;
         this.notificationService = notificationService;
         this.userRepository = userRepository;
+        this.eventService = eventService; // ADD THIS
     }
 
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
-        // Ambil email pengguna dari repository jika tidak disediakan
         String userEmail = createRequest.getUserEmail();
         if (userEmail == null || userEmail.isEmpty()) {
             userEmail = userRepository.findById(createRequest.getUserId())
@@ -50,24 +54,94 @@ public class ReportService {
                     .orElseThrow(() -> new EntityNotFoundException("User email not found for userId: " + createRequest.getUserId()));
         }
 
-        // Membuat entitas Report dari request
         Report report = new Report();
         report.setUserId(createRequest.getUserId());
         report.setUserEmail(userEmail);
+        report.setEventId(createRequest.getEventId());
+        report.setEventTitle(createRequest.getEventTitle());
         report.setCategory(createRequest.getCategory());
         report.setDescription(createRequest.getDescription());
         report.setStatus(ReportStatus.PENDING);
 
-        // Mendaftarkan observer
         report.getObservers().add(notificationService);
 
-        // Menyimpan laporan
         Report savedReport = reportRepository.save(report);
 
-        // Memberi tahu admin tentang laporan baru
         notificationService.notifyNewReport(savedReport);
 
+        if (savedReport.getEventId() != null) {
+            try {
+                EventResponseDTO event = eventService.getActiveEventById(savedReport.getEventId());
+                notifyEventOrganizer(savedReport, event.getOrganizerId());
+            } catch (Exception e) {
+                System.out.println("Could not find event for notification: " + e.getMessage());
+            }
+        }
+
         return convertToResponseDTO(savedReport);
+    }
+
+    private void notifyEventOrganizer(Report report, Long organizerId) {
+        try {
+            String organizerEmail = userRepository.findById(organizerId)
+                    .map(User::getEmail)
+                    .orElse(null);
+
+            if (organizerEmail != null) {
+                // Create a simple notification for the organizer
+                // You can expand this based on your NotificationService implementation
+                System.out.println("Notifying organizer " + organizerEmail + " about new report for event " + report.getEventId());
+            }
+        } catch (Exception e) {
+            System.out.println("Could not notify organizer: " + e.getMessage());
+        }
+    }
+
+    public boolean isReportFromOrganizerEvent(UUID reportId, Long organizerId) {
+        Report report = findReportById(reportId);
+        if (report.getEventId() == null) {
+            return false; // General reports can't be accessed by organizers
+        }
+
+        try {
+            EventResponseDTO event = eventService.getActiveEventById(report.getEventId());
+            return event.getOrganizerId().equals(organizerId);
+        } catch (Exception e) {
+            return false;
+        }
+    }
+
+    public List<ReportSummaryDTO> getReportsByOrganizerEventsAndStatus(Long organizerId, ReportStatus status) {
+        List<EventResponseDTO> organizerEvents = eventService.getActiveEventsByOrganizer(
+                userRepository.findById(organizerId)
+                        .orElseThrow(() -> new EntityNotFoundException("Organizer not found"))
+        );
+
+        List<Long> eventIds = organizerEvents.stream()
+                .map(EventResponseDTO::getId)
+                .collect(Collectors.toList());
+
+        List<Report> reports;
+        if (status != null) {
+            reports = eventIds.stream()
+                    .flatMap(eventId -> reportRepository.findByEventIdAndStatus(eventId, status).stream())
+                    .collect(Collectors.toList());
+        } else {
+            reports = eventIds.stream()
+                    .flatMap(eventId -> reportRepository.findByEventId(eventId).stream())
+                    .collect(Collectors.toList());
+        }
+
+        return reports.stream()
+                .map(this::convertToSummaryDTO)
+                .collect(Collectors.toList());
+    }
+
+    public List<ReportSummaryDTO> getReportsByEventId(Long eventId) {
+        List<Report> reports = reportRepository.findByEventId(eventId);
+        return reports.stream()
+                .map(this::convertToSummaryDTO)
+                .collect(Collectors.toList());
     }
 
     public ReportResponseDTO getReportById(UUID id) {
@@ -104,59 +178,43 @@ public class ReportService {
     public ReportResponseDTO updateReportStatus(UUID reportId, ReportStatus newStatus) {
         Report report = findReportById(reportId);
 
-        // Register observer if not already registered
         if (!report.getObservers().contains(notificationService)) {
             report.getObservers().add(notificationService);
         }
 
-        // Update the status and updatedAt timestamp
         report.updateStatus(newStatus);
-        report.setUpdatedAt(LocalDateTime.now()); // Explicitly set updatedAt
+        report.setUpdatedAt(LocalDateTime.now());
 
-        // Save the updated report
         Report updatedReport = reportRepository.save(report);
-
-        // Convert entity to response DTO
         return convertToResponseDTO(updatedReport);
     }
 
     public ReportCommentDTO addComment(UUID reportId, CreateReportCommentRequest commentRequest) {
         Report report = findReportById(reportId);
 
-        // Register observer if not already registered
         if (!report.getObservers().contains(notificationService)) {
             report.getObservers().add(notificationService);
         }
 
-        // Create the comment entity
         ReportResponse commentEntity = new ReportResponse();
         commentEntity.setResponderId(commentRequest.getResponderId());
         commentEntity.setResponderEmail(commentRequest.getResponderEmail());
         commentEntity.setResponderRole(commentRequest.getResponderRole());
         commentEntity.setMessage(commentRequest.getMessage());
 
-        // Check if the commenter is the report owner
         boolean isReportOwner = report.getUserEmail().equals(commentRequest.getResponderEmail()) ||
                 report.getUserId().equals(commentRequest.getResponderId());
 
-        // Add the comment to the report
         report.addResponse(commentEntity);
-
-        // Update the report's updatedAt timestamp
         report.setUpdatedAt(LocalDateTime.now());
 
-        // Save the comment
         ReportResponse savedComment = responseRepository.save(commentEntity);
 
-        // Auto-update status to ON_PROGRESS if it's currently PENDING and commenter is not the report owner
         if (report.getStatus() == ReportStatus.PENDING && !isReportOwner) {
             report.updateStatus(ReportStatus.ON_PROGRESS);
         }
 
-        // Save the updated report
         reportRepository.save(report);
-
-        // Convert entity to DTO
         return convertToCommentDTO(savedComment);
     }
 
@@ -170,19 +228,19 @@ public class ReportService {
                 .orElseThrow(() -> new EntityNotFoundException("Report not found with id: " + id));
     }
 
-    // Manual conversion methods
     private ReportResponseDTO convertToResponseDTO(Report report) {
         ReportResponseDTO dto = new ReportResponseDTO();
         dto.setId(report.getId());
         dto.setUserId(report.getUserId());
         dto.setUserEmail(report.getUserEmail());
+        dto.setEventId(report.getEventId());
+        dto.setEventTitle(report.getEventTitle());
         dto.setCategory(report.getCategory());
         dto.setDescription(report.getDescription());
         dto.setStatus(report.getStatus());
         dto.setCreatedAt(report.getCreatedAt());
         dto.setUpdatedAt(report.getUpdatedAt());
 
-        // Convert responses to comment DTOs
         if (report.getResponses() != null) {
             List<ReportCommentDTO> comments = report.getResponses().stream()
                     .map(this::convertToCommentDTO)
@@ -198,11 +256,12 @@ public class ReportService {
         dto.setId(report.getId());
         dto.setUserId(report.getUserId());
         dto.setUserEmail(report.getUserEmail());
+        dto.setEventId(report.getEventId());
+        dto.setEventTitle(report.getEventTitle());
         dto.setCategory(report.getCategory());
         dto.setStatus(report.getStatus());
         dto.setCreatedAt(report.getCreatedAt());
 
-        // Create shortened description
         String desc = report.getDescription();
         if (desc != null) {
             if (desc.length() > 50) {
@@ -212,9 +271,7 @@ public class ReportService {
             }
         }
 
-        // Set comment count
         dto.setCommentCount(report.getResponses() != null ? report.getResponses().size() : 0);
-
         return dto;
     }
 

@@ -28,7 +28,6 @@ public class NotificationService implements ReportObserver {
 
     @Override
     public void onStatusChanged(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
-        // Create notification for the report owner
         String title = "Report Status Updated";
         String message = String.format(
                 "Your report status has been updated from %s to %s.\n\n" +
@@ -55,21 +54,25 @@ public class NotificationService implements ReportObserver {
 
     @Override
     public void onResponseAdded(Report report, ReportResponse response) {
-        // Check if the response is from the report owner (attendee)
         boolean isFromAttendee = report.getUserEmail().equals(response.getResponderEmail()) ||
                 report.getUserId().equals(response.getResponderId());
 
-        // Check if the response is from admin/organizer
         boolean isFromStaff = "ADMIN".equals(response.getResponderRole()) ||
                 "ORGANIZER".equals(response.getResponderRole());
 
-        // Notify admins when attendee responds
         if (isFromAttendee) {
             notifyAdminsOfResponse(report, response);
+
+            if (report.getEventId() != null) {
+                notifyEventOrganizersOfResponse(report, response);
+            }
         }
-        // Notify attendee when admin/organizer responds
         else if (isFromStaff) {
             notifyAttendeeOfResponse(report, response);
+
+            if (report.getEventId() != null && "ADMIN".equals(response.getResponderRole())) {
+                notifyEventOrganizersOfAdminResponse(report, response);
+            }
         }
     }
 
@@ -133,21 +136,42 @@ public class NotificationService implements ReportObserver {
     }
 
     public void notifyNewReport(Report report) {
-        // Get admin IDs
+        notifyAdminsOfNewReport(report);
+
+        if (report.getEventId() != null) {
+            notifyEventOrganizersOfNewReport(report);
+        }
+    }
+
+    private void notifyAdminsOfNewReport(Report report) {
         List<Long> adminIds = userService.getAdminIds();
 
-        // Create notification for each admin
         for (Long adminId : adminIds) {
             String adminEmail = userService.getUserEmail(adminId);
             String title = "New Report Submitted";
-            String message = String.format(
-                    "A new report has been submitted:\n\n" +
-                            "Category: %s\n" +
-                            "Description: %s\n\n" +
-                            "Please review this report in the admin dashboard.",
-                    report.getCategory().getDisplayName(),
-                    report.getDescription()
-            );
+            String message;
+
+            if (report.getEventId() != null && report.getEventTitle() != null) {
+                message = String.format(
+                        "A new event-related report has been submitted:\n\n" +
+                                "Event: %s\n" +
+                                "Category: %s\n" +
+                                "Description: %s\n\n" +
+                                "Please review this report in the admin dashboard.",
+                        report.getEventTitle(),
+                        report.getCategory().getDisplayName(),
+                        report.getDescription()
+                );
+            } else {
+                message = String.format(
+                        "A new general report has been submitted:\n\n" +
+                                "Category: %s\n" +
+                                "Description: %s\n\n" +
+                                "Please review this report in the admin dashboard.",
+                        report.getCategory().getDisplayName(),
+                        report.getDescription()
+                );
+            }
 
             Notification notification = new Notification(
                     adminId,
@@ -163,34 +187,120 @@ public class NotificationService implements ReportObserver {
         }
     }
 
-    public void notifyOrganizerOfReport(Report report, UUID eventId) {
-        // Get organizer IDs for the event
-        List<Long> organizerIds = userService.getOrganizerIds(eventId);
+    private void notifyEventOrganizersOfNewReport(Report report) {
+        List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
-        // Create notification for each organizer
         for (Long organizerId : organizerIds) {
-            String organizerEmail = userService.getUserEmail(organizerId);
-            String title = "New Report Related to Your Event";
-            String message = String.format(
-                    "A new report has been submitted for an event you manage:\n\n" +
-                            "Category: %s\n" +
-                            "Description: %s\n\n" +
-                            "Please review this report in your organizer dashboard.",
-                    report.getCategory().getDisplayName(),
-                    report.getDescription()
-            );
+            try {
+                String organizerEmail = userService.getUserEmail(organizerId);
+                String title = "New Report for Your Event";
+                String message = String.format(
+                        "A new report has been submitted for your event '%s':\n\n" +
+                                "Category: %s\n" +
+                                "Description: %s\n" +
+                                "User: %s\n\n" +
+                                "Please review and respond to this report in your organizer dashboard.",
+                        report.getEventTitle() != null ? report.getEventTitle() : "Event #" + report.getEventId(),
+                        report.getCategory().getDisplayName(),
+                        report.getDescription(),
+                        report.getUserEmail()
+                );
 
-            Notification notification = new Notification(
-                    organizerId,
-                    organizerEmail,
-                    "SYSTEM",
-                    title,
-                    message,
-                    "NEW_REPORT",
-                    report.getId()
-            );
+                Notification notification = new Notification(
+                        organizerId,
+                        organizerEmail,
+                        "SYSTEM",
+                        title,
+                        message,
+                        "NEW_REPORT",
+                        report.getId()
+                );
 
-            notificationRepository.save(notification);
+                notificationRepository.save(notification);
+
+            } catch (Exception e) {
+                System.err.println("Failed to notify organizer " + organizerId + ": " + e.getMessage());
+            }
+        }
+    }
+
+    private void notifyEventOrganizersOfResponse(Report report, ReportResponse response) {
+        List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
+
+        for (Long organizerId : organizerIds) {
+            try {
+                String organizerEmail = userService.getUserEmail(organizerId);
+                String title = "New Response to Event Report";
+                String message = String.format(
+                        "The attendee has responded to a report about your event '%s':\n\n" +
+                                "User: %s\n" +
+                                "Message: %s\n\n" +
+                                "Category: %s\n" +
+                                "Status: %s\n\n" +
+                                "Please review and respond in your organizer dashboard.",
+                        report.getEventTitle() != null ? report.getEventTitle() : "Event #" + report.getEventId(),
+                        report.getUserEmail(),
+                        response.getMessage(),
+                        report.getCategory().getDisplayName(),
+                        report.getStatus().getDisplayName()
+                );
+
+                Notification notification = new Notification(
+                        organizerId,
+                        organizerEmail,
+                        "ATTENDEE",
+                        title,
+                        message,
+                        "NEW_RESPONSE",
+                        report.getId()
+                );
+
+                notificationRepository.save(notification);
+
+            } catch (Exception e) {
+                System.err.println("Failed to notify organizer " + organizerId + " of response: " + e.getMessage());
+            }
+        }
+    }
+
+    private void notifyEventOrganizersOfAdminResponse(Report report, ReportResponse response) {
+        List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
+
+        for (Long organizerId : organizerIds) {
+            if (organizerId.equals(response.getResponderId())) {
+                continue;
+            }
+
+            try {
+                String organizerEmail = userService.getUserEmail(organizerId);
+                String title = "Admin Response to Event Report";
+                String message = String.format(
+                        "An admin has responded to a report about your event '%s':\n\n" +
+                                "Admin Message: %s\n\n" +
+                                "Category: %s\n" +
+                                "Status: %s\n\n" +
+                                "You may want to review this in your organizer dashboard.",
+                        report.getEventTitle() != null ? report.getEventTitle() : "Event #" + report.getEventId(),
+                        response.getMessage(),
+                        report.getCategory().getDisplayName(),
+                        report.getStatus().getDisplayName()
+                );
+
+                Notification notification = new Notification(
+                        organizerId,
+                        organizerEmail,
+                        "ADMIN",
+                        title,
+                        message,
+                        "ADMIN_RESPONSE",
+                        report.getId()
+                );
+
+                notificationRepository.save(notification);
+
+            } catch (Exception e) {
+                System.err.println("Failed to notify organizer " + organizerId + " of admin response: " + e.getMessage());
+            }
         }
     }
 

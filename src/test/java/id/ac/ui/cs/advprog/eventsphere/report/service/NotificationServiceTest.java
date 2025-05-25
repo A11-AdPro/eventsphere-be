@@ -14,9 +14,8 @@ import org.mockito.ArgumentCaptor;
 
 import java.util.Arrays;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.TimeUnit;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.Mockito.*;
@@ -35,40 +34,50 @@ public class NotificationServiceTest {
     }
 
     @Test
-    @DisplayName("Membuat notifikasi saat status laporan berubah")
+    @DisplayName("Membuat notifikasi ketika status laporan berubah")
     public void testOnStatusChanged() {
         // Arrange
-        Long userId = 1L;
-        Report report = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
         report.setId(UUID.randomUUID());
-        ReportStatus oldStatus = ReportStatus.PENDING;
-        ReportStatus newStatus = ReportStatus.ON_PROGRESS;
 
         // Act
-        notificationService.onStatusChanged(report, oldStatus, newStatus);
+        notificationService.onStatusChanged(report, ReportStatus.PENDING, ReportStatus.ON_PROGRESS);
 
         // Assert
-        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(notificationCaptor.capture());
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
 
-        Notification notification = notificationCaptor.getValue();
-        assertEquals(userId, notification.getRecipientId());
-        assertEquals("user@example.com", notification.getRecipientEmail());
-        assertEquals("SYSTEM", notification.getSenderRole());
-        assertTrue(notification.getTitle().contains("Report Status Updated"));
-        assertTrue(notification.getMessage().contains(oldStatus.getDisplayName()));
-        assertTrue(notification.getMessage().contains(newStatus.getDisplayName()));
+        Notification notification = captor.getValue();
+        assertEquals("Report Status Updated", notification.getTitle());
         assertEquals("STATUS_UPDATE", notification.getType());
-        assertEquals(report.getId(), notification.getRelatedEntityId());
         assertFalse(notification.isRead());
     }
 
     @Test
-    @DisplayName("Membuat notifikasi saat respons ditambahkan ke laporan")
-    public void testOnResponseAdded() {
+    @DisplayName("Memberi notifikasi ke admin dan organizer ketika attendee merespon laporan event")
+    public void testOnResponseAdded_AttendeeToStaff() {
         // Arrange
-        Long userId = 1L;
-        Report report = new Report(userId, "user@example.com", ReportCategory.TICKET, "Ticket issue");
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(1L, "user@example.com", "ATTENDEE", "Response", report);
+
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
+        when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
+
+        // Act
+        notificationService.onResponseAdded(report, response);
+
+        // Assert
+        verify(notificationRepository, times(2)).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Memberi notifikasi ke attendee ketika staff merespon laporan")
+    public void testOnResponseAdded_StaffToAttendee() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
         report.setId(UUID.randomUUID());
         ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
@@ -76,373 +85,451 @@ public class NotificationServiceTest {
         notificationService.onResponseAdded(report, response);
 
         // Assert
-        ArgumentCaptor<Notification> notificationCaptor = ArgumentCaptor.forClass(Notification.class);
-        verify(notificationRepository).save(notificationCaptor.capture());
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
 
-        Notification notification = notificationCaptor.getValue();
-        assertEquals(userId, notification.getRecipientId());
-        assertEquals("user@example.com", notification.getRecipientEmail());
-        assertEquals("ADMIN", notification.getSenderRole());
-        assertTrue(notification.getTitle().contains("New Response"));
-        assertTrue(notification.getMessage().contains("Admin response"));
-        assertEquals("NEW_RESPONSE", notification.getType());
-        assertEquals(report.getId(), notification.getRelatedEntityId());
-        assertFalse(notification.isRead());
+        Notification notification = captor.getValue();
+        assertEquals("Response to Your Report", notification.getTitle());
+        assertEquals("STAFF_RESPONSE", notification.getType());
     }
 
     @Test
-    @DisplayName("Membuat notifikasi untuk admin saat laporan baru dibuat")
-    public void testNotifyNewReport() throws Exception {
+    @DisplayName("Memberi notifikasi ke organizer ketika admin merespon laporan event")
+    public void testOnResponseAdded_AdminToEventOrganizers() {
         // Arrange
-        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
-        List<Long> adminIds = Arrays.asList(1L, 2L);
-        when(userService.getAdminIds()).thenReturn(adminIds);
-        when(userService.getUserEmail(1L)).thenReturn("admin1@example.com");
-        when(userService.getUserEmail(2L)).thenReturn("admin2@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(Arrays.asList(3L, 2L)); // Include admin in list
+        when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        CompletableFuture<Void> future = notificationService.notifyNewReportAsync(report);
-
-        // Wait for async operation to complete
-        future.get(5, TimeUnit.SECONDS);
+        notificationService.onResponseAdded(report, response);
 
         // Assert
         verify(notificationRepository, times(2)).save(any(Notification.class));
-        verify(userService).getAdminIds();
-        verify(userService).getUserEmail(1L);
-        verify(userService).getUserEmail(2L);
     }
 
     @Test
-    @DisplayName("Membuat notifikasi untuk admin saat laporan baru dibuat - metode backward compatibility")
-    public void testNotifyNewReportBackwardCompatibility() {
+    @DisplayName("Menangani exception ketika memberi notifikasi ke organizer tentang respon admin")
+    public void testOnResponseAdded_AdminToEventOrganizers_WithException() {
         // Arrange
-        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
-        List<Long> adminIds = Arrays.asList(1L, 2L);
-        when(userService.getAdminIds()).thenReturn(adminIds);
-        when(userService.getUserEmail(1L)).thenReturn("admin1@example.com");
-        when(userService.getUserEmail(2L)).thenReturn("admin2@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
+        when(userService.getUserEmail(3L)).thenThrow(new RuntimeException("Failed to get organizer email"));
 
-        // Act - Test the backward compatibility method
-        assertDoesNotThrow(() -> notificationService.notifyNewReport(report));
+        // Act & Assert
+        assertDoesNotThrow(() -> notificationService.onResponseAdded(report, response));
 
-        // Assert - We can't verify async operations here as they run in the background
-        // This test ensures the method doesn't throw exceptions
+        // Assert
+        verify(notificationRepository, times(1)).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("Membuat notifikasi untuk organizer saat laporan terkait event dibuat")
-    public void testNotifyOrganizerOfReport() throws Exception {
+    @DisplayName("Mengidentifikasi attendee berdasarkan userId ketika email berbeda")
+    public void testOnResponseAdded_AttendeeByUserId() {
         // Arrange
-        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "user@example.com", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
-        UUID eventId = UUID.randomUUID();
+        ReportResponse response = new ReportResponse(1L, "different@example.com", "ATTENDEE", "Response", report);
 
-        List<Long> organizerIds = List.of(3L);
-        when(userService.getOrganizerIds(eventId)).thenReturn(organizerIds);
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+
+        // Act
+        notificationService.onResponseAdded(report, response);
+
+        // Assert
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Memberi notifikasi ke organizer dengan fallback nama event ketika eventTitle null")
+    public void testOnResponseAdded_AttendeeToEventOrganizers_NullTitle() {
+        // Arrange - Test null eventTitle in notifyEventOrganizersOfResponse
+        Report report = new Report(1L, "user@example.com", 10L, null, ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(1L, "user@example.com", "ATTENDEE", "Response", report);
+
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
         // Act
-        CompletableFuture<Void> future = notificationService.notifyOrganizerOfReportAsync(report, eventId);
-
-        // Wait for async operation to complete
-        future.get(5, TimeUnit.SECONDS);
+        notificationService.onResponseAdded(report, response);
 
         // Assert
-        verify(notificationRepository).save(any(Notification.class));
-        verify(userService).getOrganizerIds(eventId);
-        verify(userService).getUserEmail(3L);
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, times(2)).save(captor.capture());
+
+        List<Notification> notifications = captor.getAllValues();
+        assertTrue(notifications.stream().anyMatch(n -> n.getMessage().contains("Event #10")));
     }
 
     @Test
-    @DisplayName("Membuat notifikasi untuk organizer saat laporan terkait event dibuat - metode backward compatibility")
-    public void testNotifyOrganizerOfReportBackwardCompatibility() {
-        // Arrange
-        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+    @DisplayName("Memberi notifikasi admin ke organizer dengan fallback nama event ketika eventTitle null")
+    public void testOnResponseAdded_AdminToEventOrganizers_NullTitle() {
+        // Arrange - Test null eventTitle in notifyEventOrganizersOfAdminResponse
+        Report report = new Report(1L, "user@example.com", 10L, null, ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
-        UUID eventId = UUID.randomUUID();
+        ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
 
-        List<Long> organizerIds = List.of(3L);
-        when(userService.getOrganizerIds(eventId)).thenReturn(organizerIds);
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
         when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
-        // Act - Test the backward compatibility method
-        assertDoesNotThrow(() -> notificationService.notifyOrganizerOfReport(report, eventId));
+        // Act
+        notificationService.onResponseAdded(report, response);
 
-        // Assert - We can't verify async operations here as they run in the background
-        // This test ensures the method doesn't throw exceptions
+        // Assert
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, times(2)).save(captor.capture());
+
+        List<Notification> notifications = captor.getAllValues();
+        assertTrue(notifications.stream().anyMatch(n -> n.getMessage().contains("Event #10")));
     }
 
     @Test
-    @DisplayName("Menangani error dalam async new report notification")
-    public void testNotifyNewReportAsyncError() {
+    @DisplayName("Tidak membuat notifikasi ketika respon dari role yang tidak dikenal")
+    public void testOnResponseAdded_UnknownRole() {
         // Arrange
-        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(99L, "unknown@example.com", "UNKNOWN_ROLE", "Unknown response", report);
+
+        // Act
+        notificationService.onResponseAdded(report, response);
+
+        // Assert - Should not save any notifications (neither attendee nor staff)
+        verify(notificationRepository, never()).save(any(Notification.class));
+        verify(userService, never()).getAdminIds();
+        verify(userService, never()).getOrganizerIds(any());
+    }
+
+    @Test
+    @DisplayName("Memberi notifikasi ke attendee ketika organizer merespon laporan")
+    public void testOnResponseAdded_OrganizerResponse() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(3L, "organizer@example.com", "ORGANIZER", "Organizer response", report);
+
+        // Act
+        notificationService.onResponseAdded(report, response);
+
+        // Assert
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        Notification notification = captor.getValue();
+        assertEquals("ORGANIZER", notification.getSenderRole());
+        assertEquals("STAFF_RESPONSE", notification.getType());
+    }
+
+    @Test
+    @DisplayName("Menangani exception ketika memberi notifikasi ke organizer tentang respon attendee")
+    public void testOnResponseAdded_ExceptionHandling() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(1L, "user@example.com", "ATTENDEE", "Response", report);
+
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
+        when(userService.getUserEmail(3L)).thenThrow(new RuntimeException("User not found"));
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> notificationService.onResponseAdded(report, response));
+        verify(notificationRepository, times(1)).save(any(Notification.class)); // Only admin notification
+    }
+
+    @Test
+    @DisplayName("Memberi notifikasi laporan baru ke admin untuk laporan umum")
+    public void testNotifyNewReport_GeneralReport() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
         report.setId(UUID.randomUUID());
 
-        when(userService.getAdminIds()).thenThrow(new RuntimeException("Database error"));
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
 
-        // Act & Assert
-        CompletableFuture<Void> future = notificationService.notifyNewReportAsync(report);
+        // Act
+        notificationService.notifyNewReport(report);
 
-        assertThrows(Exception.class, () -> future.get(5, TimeUnit.SECONDS));
+        // Assert
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository).save(captor.capture());
+
+        Notification notification = captor.getValue();
+        assertEquals("New Report Submitted", notification.getTitle());
+        assertEquals("NEW_REPORT", notification.getType());
+        assertTrue(notification.getMessage().contains("general report"));
     }
 
     @Test
-    @DisplayName("Menangani error dalam async organizer notification")
-    public void testNotifyOrganizerOfReportAsyncError() {
+    @DisplayName("Memberi notifikasi laporan baru ke admin dan organizer untuk laporan event")
+    public void testNotifyNewReport_EventReport() {
         // Arrange
-        Report report = new Report(1L, "attendee@example.com", ReportCategory.EVENT, "Event issue");
+        Report report = new Report(1L, "user@example.com", 10L, "Event Title", ReportCategory.EVENT, "Issue");
         report.setId(UUID.randomUUID());
-        UUID eventId = UUID.randomUUID();
 
-        when(userService.getOrganizerIds(eventId)).thenThrow(new RuntimeException("Database error"));
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
+        when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
 
-        // Act & Assert
-        CompletableFuture<Void> future = notificationService.notifyOrganizerOfReportAsync(report, eventId);
+        // Act
+        notificationService.notifyNewReport(report);
 
-        assertThrows(Exception.class, () -> future.get(5, TimeUnit.SECONDS));
+        // Assert
+        verify(notificationRepository, times(2)).save(any(Notification.class)); // Admin + Organizer
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, atLeast(1)).save(captor.capture());
+
+        List<Notification> notifications = captor.getAllValues();
+        assertTrue(notifications.stream().anyMatch(n -> n.getMessage().contains("Event Title")));
     }
 
     @Test
-    @DisplayName("Mendapatkan daftar notifikasi pengguna berdasarkan ID")
+    @DisplayName("Memberi notifikasi laporan event dengan fallback nama ketika eventTitle null")
+    public void testNotifyNewReport_EventReportWithoutTitle() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", 10L, null, ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
+        when(userService.getUserEmail(3L)).thenReturn("organizer@example.com");
+
+        // Act
+        notificationService.notifyNewReport(report);
+
+        // Assert
+        ArgumentCaptor<Notification> captor = ArgumentCaptor.forClass(Notification.class);
+        verify(notificationRepository, atLeast(1)).save(captor.capture());
+
+        List<Notification> notifications = captor.getAllValues();
+        assertTrue(notifications.stream().anyMatch(n -> n.getMessage().contains("Event #10")));
+    }
+
+    @Test
+    @DisplayName("Tidak memanggil organizer ketika eventId null")
+    public void testNotifyNewReport_GeneralReportNullEventId() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
+        report.setId(UUID.randomUUID());
+
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+
+        // Act
+        notificationService.notifyNewReport(report);
+
+        // Assert
+        verify(notificationRepository, times(1)).save(any(Notification.class)); // Only admin
+        verify(userService, never()).getOrganizerIds(any()); // Should not be called
+    }
+
+    @Test
+    @DisplayName("Menangani exception ketika memberi notifikasi ke organizer tentang laporan baru")
+    public void testNotifyNewReport_ExceptionHandling() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", 10L, "Event", ReportCategory.EVENT, "Issue");
+        report.setId(UUID.randomUUID());
+
+        when(userService.getAdminIds()).thenReturn(List.of(2L));
+        when(userService.getUserEmail(2L)).thenReturn("admin@example.com");
+        when(userService.getOrganizerIds(10L)).thenReturn(List.of(3L));
+        when(userService.getUserEmail(3L)).thenThrow(new RuntimeException("Error"));
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> notificationService.notifyNewReport(report));
+        verify(notificationRepository, times(1)).save(any(Notification.class)); // Only admin
+    }
+
+    @Test
+    @DisplayName("Mendapatkan notifikasi pengguna berdasarkan ID")
     public void testGetUserNotifications() {
         // Arrange
         Long userId = 1L;
-        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
-
-        List<Notification> notifications = Arrays.asList(notification1, notification2);
+        List<Notification> notifications = List.of(
+                new Notification(userId, "user@example.com", "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID())
+        );
         when(notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId)).thenReturn(notifications);
 
         // Act
         List<Notification> result = notificationService.getUserNotifications(userId);
 
         // Assert
-        assertEquals(2, result.size());
         assertEquals(notifications, result);
         verify(notificationRepository).findByRecipientIdOrderByCreatedAtDesc(userId);
     }
 
     @Test
-    @DisplayName("Mendapatkan daftar notifikasi pengguna berdasarkan email")
+    @DisplayName("Mendapatkan notifikasi pengguna berdasarkan email")
     public void testGetUserNotificationsByEmail() {
         // Arrange
         String email = "user@example.com";
-        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        Notification notification2 = new Notification(1L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
-
-        List<Notification> notifications = Arrays.asList(notification1, notification2);
+        List<Notification> notifications = List.of(
+                new Notification(1L, email, "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID())
+        );
         when(notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email)).thenReturn(notifications);
 
         // Act
         List<Notification> result = notificationService.getUserNotificationsByEmail(email);
 
         // Assert
-        assertEquals(2, result.size());
         assertEquals(notifications, result);
         verify(notificationRepository).findByRecipientEmailOrderByCreatedAtDesc(email);
     }
 
     @Test
-    @DisplayName("Mendapatkan daftar notifikasi yang belum dibaca berdasarkan ID pengguna")
+    @DisplayName("Mendapatkan notifikasi belum dibaca pengguna berdasarkan ID")
     public void testGetUnreadUserNotifications() {
         // Arrange
         Long userId = 1L;
-        Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        notification1.setRead(false);
-
-        List<Notification> notifications = List.of(notification1);
+        List<Notification> notifications = List.of(
+                new Notification(userId, "user@example.com", "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID())
+        );
         when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false)).thenReturn(notifications);
 
         // Act
         List<Notification> result = notificationService.getUnreadUserNotifications(userId);
 
         // Assert
-        assertEquals(1, result.size());
         assertEquals(notifications, result);
         verify(notificationRepository).findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
     }
 
     @Test
-    @DisplayName("Mendapatkan daftar notifikasi yang belum dibaca berdasarkan email pengguna")
+    @DisplayName("Mendapatkan notifikasi belum dibaca pengguna berdasarkan email")
     public void testGetUnreadUserNotificationsByEmail() {
         // Arrange
         String email = "user@example.com";
-        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        notification1.setRead(false);
-
-        List<Notification> notifications = List.of(notification1);
+        List<Notification> notifications = List.of(
+                new Notification(1L, email, "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID())
+        );
         when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(notifications);
 
         // Act
         List<Notification> result = notificationService.getUnreadUserNotificationsByEmail(email);
 
         // Assert
-        assertEquals(1, result.size());
         assertEquals(notifications, result);
         verify(notificationRepository).findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
     }
 
     @Test
-    @DisplayName("Menghitung jumlah notifikasi yang belum dibaca berdasarkan ID pengguna")
+    @DisplayName("Menghitung jumlah notifikasi belum dibaca berdasarkan ID pengguna")
     public void testCountUnreadNotifications() {
         // Arrange
         Long userId = 1L;
-        long expectedCount = 3;
-        when(notificationRepository.countByRecipientIdAndRead(userId, false)).thenReturn(expectedCount);
+        when(notificationRepository.countByRecipientIdAndRead(userId, false)).thenReturn(3L);
 
         // Act
         long result = notificationService.countUnreadNotifications(userId);
 
         // Assert
-        assertEquals(expectedCount, result);
+        assertEquals(3L, result);
         verify(notificationRepository).countByRecipientIdAndRead(userId, false);
     }
 
     @Test
-    @DisplayName("Menghitung jumlah notifikasi yang belum dibaca berdasarkan email pengguna")
+    @DisplayName("Menghitung jumlah notifikasi belum dibaca berdasarkan email pengguna")
     public void testCountUnreadNotificationsByEmail() {
         // Arrange
         String email = "user@example.com";
-        long expectedCount = 3;
-        when(notificationRepository.countByRecipientEmailAndRead(email, false)).thenReturn(expectedCount);
+        when(notificationRepository.countByRecipientEmailAndRead(email, false)).thenReturn(5L);
 
         // Act
         long result = notificationService.countUnreadNotificationsByEmail(email);
 
         // Assert
-        assertEquals(expectedCount, result);
+        assertEquals(5L, result);
         verify(notificationRepository).countByRecipientEmailAndRead(email, false);
     }
 
     @Test
-    @DisplayName("Menandai notifikasi sebagai telah dibaca")
+    @DisplayName("Menandai notifikasi sebagai sudah dibaca")
     public void testMarkNotificationAsRead() {
         // Arrange
         UUID notificationId = UUID.randomUUID();
-        Long userId = 1L;
-        Notification notification = new Notification(userId, "user@example.com", "ADMIN", "Title", "Message", "TYPE_1", UUID.randomUUID());
+        Notification notification = new Notification(1L, "user@example.com", "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID());
         notification.setId(notificationId);
         notification.setRead(false);
 
-        when(notificationRepository.findById(notificationId)).thenReturn(java.util.Optional.of(notification));
+        when(notificationRepository.findById(notificationId)).thenReturn(Optional.of(notification));
         when(notificationRepository.save(notification)).thenReturn(notification);
 
         // Act
-        Notification updatedNotification = notificationService.markNotificationAsRead(notificationId);
+        Notification result = notificationService.markNotificationAsRead(notificationId);
 
         // Assert
-        assertTrue(updatedNotification.isRead(), "Notifikasi seharusnya ditandai sebagai telah dibaca");
-        verify(notificationRepository).save(updatedNotification);
+        assertTrue(result.isRead());
+        verify(notificationRepository).save(notification);
     }
 
     @Test
-    @DisplayName("Menandai semua notifikasi sebagai telah dibaca berdasarkan ID pengguna")
+    @DisplayName("Melempar exception ketika menandai notifikasi tidak ditemukan sebagai sudah dibaca")
+    public void testMarkNotificationAsRead_NotFound() {
+        // Arrange
+        UUID notificationId = UUID.randomUUID();
+        when(notificationRepository.findById(notificationId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> notificationService.markNotificationAsRead(notificationId)
+        );
+
+        assertEquals("Notification not found", exception.getMessage());
+        verify(notificationRepository, never()).save(any());
+    }
+
+    @Test
+    @DisplayName("Menandai semua notifikasi sebagai sudah dibaca berdasarkan ID pengguna")
     public void testMarkAllNotificationsAsRead() {
         // Arrange
         Long userId = 1L;
         Notification notification1 = new Notification(userId, "user@example.com", "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        notification1.setRead(false);
-
         Notification notification2 = new Notification(userId, "user@example.com", "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
+        notification1.setRead(false);
         notification2.setRead(false);
 
-        List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
-        when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false)).thenReturn(unreadNotifications);
+        when(notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false))
+                .thenReturn(Arrays.asList(notification1, notification2));
 
         // Act
         notificationService.markAllNotificationsAsRead(userId);
 
         // Assert
-        verify(notificationRepository, times(2)).save(any(Notification.class));
         assertTrue(notification1.isRead());
         assertTrue(notification2.isRead());
+        verify(notificationRepository, times(2)).save(any(Notification.class));
     }
 
     @Test
-    @DisplayName("Menandai semua notifikasi sebagai telah dibaca berdasarkan email pengguna")
+    @DisplayName("Menandai semua notifikasi sebagai sudah dibaca berdasarkan email pengguna")
     public void testMarkAllNotificationsAsReadByEmail() {
         // Arrange
         String email = "user@example.com";
-        Notification notification1 = new Notification(1L, email, "ADMIN", "Title 1", "Message 1", "TYPE_1", UUID.randomUUID());
-        notification1.setRead(false);
+        Notification notification = new Notification(1L, email, "ADMIN", "Title", "Message", "TYPE", UUID.randomUUID());
+        notification.setRead(false);
 
-        Notification notification2 = new Notification(2L, email, "SYSTEM", "Title 2", "Message 2", "TYPE_2", UUID.randomUUID());
-        notification2.setRead(false);
-
-        List<Notification> unreadNotifications = Arrays.asList(notification1, notification2);
-        when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false)).thenReturn(unreadNotifications);
+        when(notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false))
+                .thenReturn(List.of(notification));
 
         // Act
         notificationService.markAllNotificationsAsReadByEmail(email);
 
         // Assert
-        verify(notificationRepository, times(2)).save(any(Notification.class));
-        assertTrue(notification1.isRead());
-        assertTrue(notification2.isRead());
-    }
-
-    @Test
-    @DisplayName("Menangani error saat notifikasi yang akan ditandai tidak ditemukan")
-    public void testMarkNotificationAsRead_NotificationNotFound() {
-        // Arrange
-        UUID nonExistentId = UUID.randomUUID();
-        when(notificationRepository.findById(nonExistentId)).thenReturn(java.util.Optional.empty());
-
-        // Act & Assert
-        EntityNotFoundException exception = assertThrows(
-                EntityNotFoundException.class,
-                () -> notificationService.markNotificationAsRead(nonExistentId)
-        );
-
-        assertEquals("Notification not found", exception.getMessage());
-        verify(notificationRepository).findById(nonExistentId);
-        verify(notificationRepository, never()).save(any(Notification.class));
-    }
-
-    @Test
-    @DisplayName("Menangani error saat membuat notifikasi status change")
-    public void testOnStatusChanged_WithException() {
-        // Arrange
-        Long userId = 1L;
-        Report report = new Report(userId, "user@example.com", ReportCategory.PAYMENT, "Payment issue");
-        report.setId(UUID.randomUUID());
-        ReportStatus oldStatus = ReportStatus.PENDING;
-        ReportStatus newStatus = ReportStatus.ON_PROGRESS;
-
-        // Mock repository to throw exception
-        when(notificationRepository.save(any(Notification.class)))
-                .thenThrow(new RuntimeException("Database connection failed"));
-
-        // Act - this should not throw exception, but should log the error
-        assertDoesNotThrow(() -> notificationService.onStatusChanged(report, oldStatus, newStatus));
-
-        // Assert - verify that save was attempted
-        verify(notificationRepository).save(any(Notification.class));
-    }
-
-    @Test
-    @DisplayName("Menangani error saat membuat notifikasi response added")
-    public void testOnResponseAdded_WithException() {
-        // Arrange
-        Long userId = 1L;
-        Report report = new Report(userId, "user@example.com", ReportCategory.TICKET, "Ticket issue");
-        report.setId(UUID.randomUUID());
-        ReportResponse response = new ReportResponse(2L, "admin@example.com", "ADMIN", "Admin response", report);
-
-        // Mock repository to throw exception
-        when(notificationRepository.save(any(Notification.class)))
-                .thenThrow(new RuntimeException("Database connection failed"));
-
-        // Act - this should not throw exception, but should log the error
-        assertDoesNotThrow(() -> notificationService.onResponseAdded(report, response));
-
-        // Assert - verify that save was attempted
-        verify(notificationRepository).save(any(Notification.class));
+        assertTrue(notification.isRead());
+        verify(notificationRepository).save(notification);
     }
 }

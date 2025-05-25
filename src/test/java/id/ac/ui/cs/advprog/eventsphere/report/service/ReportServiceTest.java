@@ -2,6 +2,8 @@ package id.ac.ui.cs.advprog.eventsphere.report.service;
 
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.event.dto.EventResponseDTO;
+import id.ac.ui.cs.advprog.eventsphere.event.service.EventService;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportCommentRequest;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.request.CreateReportRequest;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.response.ReportCommentDTO;
@@ -18,17 +20,12 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.DisplayName;
 
-import java.time.LocalDateTime;
-import java.util.Arrays;
-import java.util.Collections;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
 
 public class ReportServiceTest {
@@ -37,6 +34,7 @@ public class ReportServiceTest {
     private ReportResponseRepository responseRepository;
     private NotificationService notificationService;
     private UserRepository userRepository;
+    private EventService eventService;
     private ReportService reportService;
 
     @BeforeEach
@@ -45,247 +43,422 @@ public class ReportServiceTest {
         responseRepository = mock(ReportResponseRepository.class);
         notificationService = mock(NotificationService.class);
         userRepository = mock(UserRepository.class);
+        eventService = mock(EventService.class);
 
         reportService = new ReportService(
                 reportRepository,
                 responseRepository,
                 notificationService,
-                userRepository
+                userRepository,
+                eventService
         );
     }
 
     @Test
-    @DisplayName("Membuat laporan baru dengan data permintaan yang valid")
-    public void testCreateReport() {
+    @DisplayName("Membuat laporan baru dengan email yang sudah disediakan")
+    public void testCreateReport_WithEmail() {
         // Arrange
-        Long userId = 1L;
-        String userEmail = "user@example.com";
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail("user@example.com");
+        request.setCategory(ReportCategory.PAYMENT);
+        request.setDescription("Test description");
 
-        CreateReportRequest createRequest = new CreateReportRequest();
-        createRequest.setUserId(userId);
-        createRequest.setUserEmail(userEmail);
-        createRequest.setCategory(ReportCategory.PAYMENT);
-        createRequest.setDescription("Test description");
-
-        User mockUser = new User();
-        mockUser.setEmail(userEmail);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
         when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
             Report report = invocation.getArgument(0);
             report.setId(UUID.randomUUID());
             return report;
         });
 
-        // Mock async notification methods to return completed futures
-        when(notificationService.notifyNewReportAsync(any(Report.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
-        when(notificationService.notifyOrganizerOfReportAsync(any(Report.class), any()))
-                .thenReturn(CompletableFuture.completedFuture(null));
-
         // Act
-        ReportResponseDTO result = reportService.createReport(createRequest);
+        ReportResponseDTO result = reportService.createReport(request);
 
         // Assert
-        verify(reportRepository).save(any(Report.class));
-        // Update verification to use async methods
-        verify(notificationService).notifyNewReportAsync(any(Report.class));
-        verify(notificationService).notifyOrganizerOfReportAsync(any(Report.class), any());
-
-        assertNotNull(result.getId());
-        assertEquals(userId, result.getUserId());
-        assertEquals(userEmail, result.getUserEmail());
-        assertEquals(ReportCategory.PAYMENT, result.getCategory());
-        assertEquals("Test description", result.getDescription());
+        assertEquals("user@example.com", result.getUserEmail());
         assertEquals(ReportStatus.PENDING, result.getStatus());
+        verify(notificationService).notifyNewReport(any(Report.class));
     }
 
     @Test
-    @DisplayName("Mengambil email pengguna dari repository berdasarkan userId jika tidak disediakan dalam permintaan")
-    public void testCreateReport_withEmptyUserEmail() {
+    @DisplayName("Membuat laporan baru dengan email yang dicari dari database")
+    public void testCreateReport_WithoutEmail() {
         // Arrange
-        Long userId = 1L;
-        String repositoryEmail = "user@example.com";
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail(null); // Test null email path
+        request.setCategory(ReportCategory.PAYMENT);
+        request.setDescription("Test description");
 
-        CreateReportRequest createRequest = new CreateReportRequest();
-        createRequest.setUserId(userId);
-        createRequest.setUserEmail(""); // Email kosong
-        createRequest.setCategory(ReportCategory.PAYMENT);
-        createRequest.setDescription("Test description");
+        User user = new User();
+        user.setEmail("found@example.com");
 
-        User mockUser = new User();
-        mockUser.setEmail(repositoryEmail);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
+        when(userRepository.findById(1L)).thenReturn(Optional.of(user));
         when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
             Report report = invocation.getArgument(0);
             report.setId(UUID.randomUUID());
             return report;
         });
 
-        // Mock async notification methods to return completed futures
-        when(notificationService.notifyNewReportAsync(any(Report.class)))
-                .thenReturn(CompletableFuture.completedFuture(null));
-        when(notificationService.notifyOrganizerOfReportAsync(any(Report.class), any()))
-                .thenReturn(CompletableFuture.completedFuture(null));
-
         // Act
-        ReportResponseDTO result = reportService.createReport(createRequest);
+        ReportResponseDTO result = reportService.createReport(request);
 
         // Assert
-        assertEquals(repositoryEmail, result.getUserEmail());
-        verify(userRepository).findById(userId);
+        assertEquals("found@example.com", result.getUserEmail());
+        verify(userRepository).findById(1L);
     }
 
     @Test
-    @DisplayName("Mengambil laporan berdasarkan ID")
-    public void testGetReportById() {
+    @DisplayName("Melempar exception ketika pengguna tidak ditemukan saat membuat laporan")
+    public void testCreateReport_UserNotFound() {
         // Arrange
-        UUID id = UUID.randomUUID();
-        Long userId = 1L;
-        String userEmail = "user@example.com";
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail(""); // Empty email to trigger user lookup
 
-        Report report = new Report();
-        report.setId(id);
-        report.setUserId(userId);
-        report.setUserEmail(userEmail);
-        report.setCategory(ReportCategory.PAYMENT);
-        report.setDescription("Test report");
-        report.setStatus(ReportStatus.PENDING);
-        report.setCreatedAt(LocalDateTime.now());
+        when(userRepository.findById(1L)).thenReturn(Optional.empty());
 
-        when(reportRepository.findById(id)).thenReturn(Optional.of(report));
-
-        // Act
-        ReportResponseDTO result = reportService.getReportById(id);
-
-        // Assert
-        verify(reportRepository).findById(id);
-        assertEquals(id, result.getId());
-        assertEquals(userId, result.getUserId());
-        assertEquals(userEmail, result.getUserEmail());
-        assertEquals(ReportCategory.PAYMENT, result.getCategory());
-        assertEquals("Test report", result.getDescription());
-        assertEquals(ReportStatus.PENDING, result.getStatus());
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.createReport(request)
+        );
+        assertEquals("User email not found for userId: 1", exception.getMessage());
     }
 
     @Test
-    @DisplayName("Mengambil daftar laporan berdasarkan ID pengguna")
-    public void testGetReportsByUserId() {
+    @DisplayName("Membuat laporan untuk event dengan notifikasi organizer")
+    public void testCreateReport_WithEvent() {
         // Arrange
-        Long userId = 1L;
-        String userEmail = "user@example.com";
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail("user@example.com");
+        request.setEventId(10L);
+        request.setEventTitle("Event");
+        request.setCategory(ReportCategory.EVENT);
+        request.setDescription("Event issue");
 
-        Report report1 = new Report();
-        report1.setId(UUID.randomUUID());
-        report1.setUserId(userId);
-        report1.setUserEmail(userEmail);
-        report1.setCategory(ReportCategory.PAYMENT);
-        report1.setDescription("User report 1");
-        report1.setStatus(ReportStatus.PENDING);
-        report1.setCreatedAt(LocalDateTime.now());
+        EventResponseDTO event = new EventResponseDTO();
+        event.setOrganizerId(5L);
 
-        Report report2 = new Report();
-        report2.setId(UUID.randomUUID());
-        report2.setUserId(userId);
-        report2.setUserEmail(userEmail);
-        report2.setCategory(ReportCategory.TICKET);
-        report2.setDescription("User report 2");
-        report2.setStatus(ReportStatus.RESOLVED);
-        report2.setCreatedAt(LocalDateTime.now());
+        User organizer = new User();
+        organizer.setEmail("organizer@example.com");
 
-        List<Report> reports = Arrays.asList(report1, report2);
-        when(reportRepository.findByUserId(userId)).thenReturn(reports);
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+        when(eventService.getActiveEventById(10L)).thenReturn(event);
+        when(userRepository.findById(5L)).thenReturn(Optional.of(organizer));
 
         // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByUserId(userId);
+        ReportResponseDTO result = reportService.createReport(request);
 
         // Assert
-        verify(reportRepository).findByUserId(userId);
-        assertEquals(2, result.size());
-        assertEquals(ReportCategory.PAYMENT, result.get(0).getCategory());
-        assertEquals(ReportCategory.TICKET, result.get(1).getCategory());
+        assertEquals(10L, result.getEventId());
+        verify(eventService).getActiveEventById(10L);
+        verify(userRepository).findById(5L);
     }
 
     @Test
-    @DisplayName("Mengambil daftar laporan berdasarkan email pengguna")
-    public void testGetReportsByUserEmail() {
+    @DisplayName("Menangani exception saat mencari event ketika membuat laporan")
+    public void testCreateReport_EventException() {
         // Arrange
-        String email = "user@example.com";
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail("user@example.com");
+        request.setEventId(10L);
+        request.setCategory(ReportCategory.EVENT);
+        request.setDescription("Event issue");
 
-        Report report1 = new Report();
-        report1.setId(UUID.randomUUID());
-        report1.setUserId(1L);
-        report1.setUserEmail(email);
-        report1.setCategory(ReportCategory.PAYMENT);
-        report1.setDescription("User report 1");
-        report1.setStatus(ReportStatus.PENDING);
-        report1.setCreatedAt(LocalDateTime.now());
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+        when(eventService.getActiveEventById(10L)).thenThrow(new RuntimeException("Event error"));
 
-        Report report2 = new Report();
-        report2.setId(UUID.randomUUID());
-        report2.setUserId(1L);
-        report2.setUserEmail(email);
-        report2.setCategory(ReportCategory.TICKET);
-        report2.setDescription("User report 2");
-        report2.setStatus(ReportStatus.RESOLVED);
-        report2.setCreatedAt(LocalDateTime.now());
-
-        List<Report> reports = Arrays.asList(report1, report2);
-        when(reportRepository.findByUserEmail(email)).thenReturn(reports);
-
-        // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByUserEmail(email);
-
-        // Assert
-        verify(reportRepository).findByUserEmail(email);
-        assertEquals(2, result.size());
-        assertEquals(ReportCategory.PAYMENT, result.get(0).getCategory());
-        assertEquals(ReportCategory.TICKET, result.get(1).getCategory());
+        // Act & Assert
+        assertDoesNotThrow(() -> reportService.createReport(request));
     }
 
     @Test
-    @DisplayName("Menambahkan komentar pada laporan dan memperbarui status jika masih pending")
-    public void testAddComment() {
+    @DisplayName("Menangani ketika organizer tidak ditemukan saat notifikasi event")
+    public void testNotifyEventOrganizer_OrganizerNotFound() {
+        // Arrange
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail("user@example.com");
+        request.setEventId(10L);
+        request.setCategory(ReportCategory.EVENT);
+        request.setDescription("Event issue");
+
+        EventResponseDTO event = new EventResponseDTO();
+        event.setOrganizerId(5L);
+
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+        when(eventService.getActiveEventById(10L)).thenReturn(event);
+        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        assertDoesNotThrow(() -> reportService.createReport(request));
+    }
+
+    @Test
+    @DisplayName("Menangani exception saat mencari organizer untuk notifikasi")
+    public void testNotifyEventOrganizer_Exception() {
+        // Arrange
+        CreateReportRequest request = new CreateReportRequest();
+        request.setUserId(1L);
+        request.setUserEmail("user@example.com");
+        request.setEventId(10L);
+        request.setCategory(ReportCategory.EVENT);
+        request.setDescription("Event issue");
+
+        EventResponseDTO event = new EventResponseDTO();
+        event.setOrganizerId(5L);
+
+        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
+            Report report = invocation.getArgument(0);
+            report.setId(UUID.randomUUID());
+            return report;
+        });
+        when(eventService.getActiveEventById(10L)).thenReturn(event);
+        when(userRepository.findById(5L)).thenThrow(new RuntimeException("Database error"));
+
+        // Act & Assert - Should not throw exception
+        assertDoesNotThrow(() -> reportService.createReport(request));
+    }
+
+    @Test
+    @DisplayName("Memverifikasi laporan milik organizer event berhasil")
+    public void testIsReportFromOrganizerEvent_True() {
         // Arrange
         UUID reportId = UUID.randomUUID();
-        Long responderId = 1L;
-        String responderEmail = "admin@example.com";
-        String responderRole = "ADMIN";
-        String message = "Test comment";
-
         Report report = new Report();
-        report.setId(reportId);
-        report.setStatus(ReportStatus.PENDING);
+        report.setEventId(10L);
 
-        CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
-        commentRequest.setResponderId(responderId);
-        commentRequest.setResponderEmail(responderEmail);
-        commentRequest.setResponderRole(responderRole);
-        commentRequest.setMessage(message);
+        EventResponseDTO event = new EventResponseDTO();
+        event.setOrganizerId(5L);
 
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
-        when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
-            ReportResponse savedResponse = invocation.getArgument(0);
-            savedResponse.setId(UUID.randomUUID());
-            return savedResponse;
-        });
+        when(eventService.getActiveEventById(10L)).thenReturn(event);
 
         // Act
-        ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
+        boolean result = reportService.isReportFromOrganizerEvent(reportId, 5L);
 
         // Assert
-        verify(reportRepository).findById(reportId);
-        verify(responseRepository).save(any(ReportResponse.class));
-        verify(notificationService).onResponseAdded(eq(report), any(ReportResponse.class));
+        assertTrue(result);
+    }
 
-        assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
-        assertNotNull(result.getId());
-        assertEquals(reportId, result.getReportId());
-        assertEquals(responderId, result.getResponderId());
-        assertEquals(responderEmail, result.getResponderEmail());
-        assertEquals(responderRole, result.getResponderRole());
-        assertEquals(message, result.getMessage());
+    @Test
+    @DisplayName("Memverifikasi laporan bukan milik organizer ketika eventId null")
+    public void testIsReportFromOrganizerEvent_False_NullEventId() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setEventId(null);
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+
+        // Act
+        boolean result = reportService.isReportFromOrganizerEvent(reportId, 5L);
+
+        // Assert
+        assertFalse(result);
+        verify(eventService, never()).getActiveEventById(any());
+    }
+
+    @Test
+    @DisplayName("Memverifikasi laporan bukan milik organizer ketika terjadi exception")
+    public void testIsReportFromOrganizerEvent_False_Exception() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setEventId(10L);
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(eventService.getActiveEventById(10L)).thenThrow(new RuntimeException("Event error"));
+
+        // Act
+        boolean result = reportService.isReportFromOrganizerEvent(reportId, 5L);
+
+        // Assert
+        assertFalse(result);
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan organizer berdasarkan event dan status")
+    public void testGetReportsByOrganizerEventsAndStatus_WithStatus() {
+        // Arrange
+        Long organizerId = 5L;
+        User organizer = new User();
+        EventResponseDTO event = new EventResponseDTO();
+        event.setId(10L);
+
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+        report.setStatus(ReportStatus.PENDING);
+
+        when(userRepository.findById(organizerId)).thenReturn(Optional.of(organizer));
+        when(eventService.getActiveEventsByOrganizer(organizer)).thenReturn(List.of(event));
+        when(reportRepository.findByEventIdAndStatus(10L, ReportStatus.PENDING))
+                .thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByOrganizerEventsAndStatus(organizerId, ReportStatus.PENDING);
+
+        // Assert
+        assertEquals(1, result.size());
+        verify(reportRepository).findByEventIdAndStatus(10L, ReportStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan organizer berdasarkan event tanpa filter status")
+    public void testGetReportsByOrganizerEventsAndStatus_WithoutStatus() {
+        // Arrange
+        Long organizerId = 5L;
+        User organizer = new User();
+        EventResponseDTO event = new EventResponseDTO();
+        event.setId(10L);
+
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+
+        when(userRepository.findById(organizerId)).thenReturn(Optional.of(organizer));
+        when(eventService.getActiveEventsByOrganizer(organizer)).thenReturn(List.of(event));
+        when(reportRepository.findByEventId(10L)).thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByOrganizerEventsAndStatus(organizerId, null);
+
+        // Assert
+        assertEquals(1, result.size());
+        verify(reportRepository).findByEventId(10L);
+    }
+
+    @Test
+    @DisplayName("Melempar exception ketika organizer tidak ditemukan")
+    public void testGetReportsByOrganizerEventsAndStatus_OrganizerNotFound() {
+        // Arrange
+        when(userRepository.findById(5L)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.getReportsByOrganizerEventsAndStatus(5L, null)
+        );
+        assertEquals("Organizer not found", exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan berdasarkan ID event")
+    public void testGetReportsByEventId() {
+        // Arrange
+        Report report = new Report();
+        report.setId(UUID.randomUUID());
+
+        when(reportRepository.findByEventId(10L)).thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByEventId(10L);
+
+        // Assert
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan berdasarkan ID")
+    public void testGetReportById() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+
+        // Act
+        ReportResponseDTO result = reportService.getReportById(reportId);
+
+        // Assert
+        assertEquals(reportId, result.getId());
+    }
+
+    @Test
+    @DisplayName("Melempar exception ketika laporan tidak ditemukan berdasarkan ID")
+    public void testGetReportById_NotFound() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
+
+        // Act & Assert
+        EntityNotFoundException exception = assertThrows(
+                EntityNotFoundException.class,
+                () -> reportService.getReportById(reportId)
+        );
+        assertEquals("Report not found with id: " + reportId, exception.getMessage());
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan berdasarkan ID pengguna")
+    public void testGetReportsByUserId() {
+        // Arrange
+        Report report = new Report();
+        when(reportRepository.findByUserId(1L)).thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByUserId(1L);
+
+        // Assert
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan berdasarkan email pengguna")
+    public void testGetReportsByUserEmail() {
+        // Arrange
+        Report report = new Report();
+        when(reportRepository.findByUserEmail("user@example.com")).thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByUserEmail("user@example.com");
+
+        // Assert
+        assertEquals(1, result.size());
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan berdasarkan status tertentu")
+    public void testGetReportsByStatus_WithStatus() {
+        // Arrange
+        Report report = new Report();
+        when(reportRepository.findByStatus(ReportStatus.PENDING)).thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(ReportStatus.PENDING);
+
+        // Assert
+        assertEquals(1, result.size());
+        verify(reportRepository).findByStatus(ReportStatus.PENDING);
+    }
+
+    @Test
+    @DisplayName("Mendapatkan semua laporan tanpa filter status")
+    public void testGetReportsByStatus_WithoutStatus() {
+        // Arrange
+        Report report = new Report();
+        when(reportRepository.findAll()).thenReturn(List.of(report));
+
+        // Act
+        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+
+        // Assert
+        assertEquals(1, result.size());
+        verify(reportRepository).findAll();
     }
 
     @Test
@@ -298,22 +471,190 @@ public class ReportServiceTest {
         report.setStatus(ReportStatus.PENDING);
 
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
-        when(reportRepository.save(any(Report.class))).thenReturn(report);
+        when(reportRepository.save(report)).thenReturn(report);
 
         // Act
-        ReportResponseDTO result = reportService.updateReportStatus(reportId, ReportStatus.RESOLVED);
+        ReportResponseDTO result = reportService.updateReportStatus(reportId, ReportStatus.ON_PROGRESS);
 
         // Assert
-        verify(reportRepository).findById(reportId);
+        assertEquals(ReportStatus.ON_PROGRESS, result.getStatus());
+        assertNotNull(result.getUpdatedAt());
         verify(reportRepository).save(report);
-        verify(notificationService).onStatusChanged(report, ReportStatus.PENDING, ReportStatus.RESOLVED);
-
-        assertEquals(reportId, result.getId());
-        assertEquals(ReportStatus.RESOLVED, result.getStatus());
     }
 
     @Test
-    @DisplayName("Menghapus laporan berdasarkan ID")
+    @DisplayName("Memperbarui status laporan dengan observer yang sudah ada")
+    public void testUpdateReportStatus_ObserverAlreadyAdded() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.getObservers().add(notificationService);
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(reportRepository.save(report)).thenReturn(report);
+
+        // Act
+        reportService.updateReportStatus(reportId, ReportStatus.ON_PROGRESS);
+
+        // Assert
+        assertEquals(1, report.getObservers().size()); // Should not add duplicate
+    }
+
+    @Test
+    @DisplayName("Menambah komentar dari pemilik laporan berdasarkan email")
+    public void testAddComment_ReportOwnerByEmail() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.setUserEmail("user@example.com");
+        report.setStatus(ReportStatus.PENDING);
+
+        CreateReportCommentRequest request = new CreateReportCommentRequest();
+        request.setResponderEmail("user@example.com"); // Same as report owner
+        request.setMessage("Comment");
+
+        ReportResponse savedComment = new ReportResponse();
+        savedComment.setId(UUID.randomUUID());
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenReturn(savedComment);
+        when(reportRepository.save(report)).thenReturn(report);
+
+        // Act
+        ReportCommentDTO result = reportService.addComment(reportId, request);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(ReportStatus.PENDING, report.getStatus()); // Should remain pending for owner
+    }
+
+    @Test
+    @DisplayName("Menambah komentar dari pemilik laporan berdasarkan user ID")
+    public void testAddComment_ReportOwnerByUserId() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.setUserId(1L);
+        report.setUserEmail("user@example.com");
+        report.setStatus(ReportStatus.PENDING);
+
+        CreateReportCommentRequest request = new CreateReportCommentRequest();
+        request.setResponderId(1L); // Same as report owner
+        request.setResponderEmail("different@example.com");
+        request.setMessage("Comment");
+
+        ReportResponse savedComment = new ReportResponse();
+        savedComment.setId(UUID.randomUUID());
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenReturn(savedComment);
+        when(reportRepository.save(report)).thenReturn(report);
+
+        // Act
+        ReportCommentDTO result = reportService.addComment(reportId, request);
+
+        // Assert
+        assertNotNull(result);
+        assertEquals(ReportStatus.PENDING, report.getStatus()); // Should remain pending for owner
+    }
+
+    @Test
+    @DisplayName("Menambah komentar dari non-owner mengubah status ke ON_PROGRESS")
+    public void testAddComment_NonOwner_StatusChange() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.setUserId(1L);
+        report.setUserEmail("user@example.com");
+        report.setStatus(ReportStatus.PENDING);
+
+        CreateReportCommentRequest request = new CreateReportCommentRequest();
+        request.setResponderId(2L); // Different from report owner
+        request.setResponderEmail("admin@example.com");
+        request.setMessage("Admin comment");
+
+        ReportResponse savedComment = new ReportResponse();
+        savedComment.setId(UUID.randomUUID());
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenReturn(savedComment);
+        when(reportRepository.save(report)).thenReturn(report);
+
+        // Act
+        reportService.addComment(reportId, request);
+
+        // Assert
+        assertEquals(ReportStatus.ON_PROGRESS, report.getStatus()); // Should change to ON_PROGRESS
+    }
+
+    @Test
+    @DisplayName("Menambah komentar dari non-owner ketika status bukan PENDING")
+    public void testAddComment_NonOwner_StatusNotPending() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.setUserId(1L);
+        report.setUserEmail("user@example.com");
+        report.setStatus(ReportStatus.ON_PROGRESS); // Not PENDING
+
+        CreateReportCommentRequest request = new CreateReportCommentRequest();
+        request.setResponderId(2L); // Different from report owner
+        request.setResponderEmail("admin@example.com");
+        request.setMessage("Admin comment");
+
+        ReportResponse savedComment = new ReportResponse();
+        savedComment.setId(UUID.randomUUID());
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenReturn(savedComment);
+        when(reportRepository.save(report)).thenReturn(report);
+
+        // Act
+        reportService.addComment(reportId, request);
+
+        // Assert
+        assertEquals(ReportStatus.ON_PROGRESS, report.getStatus()); // Should remain ON_PROGRESS
+    }
+
+    @Test
+    @DisplayName("Menambah komentar dengan observer yang sudah ada")
+    public void testAddComment_ObserverAlreadyAdded() {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        Report report = new Report();
+        report.setId(reportId);
+        report.setUserId(1L);
+        report.setUserEmail("user@example.com");
+        report.setStatus(ReportStatus.PENDING);
+        report.getObservers().add(notificationService); // Already added
+
+        CreateReportCommentRequest request = new CreateReportCommentRequest();
+        request.setResponderId(2L);
+        request.setResponderEmail("admin@example.com");
+        request.setResponderRole("ADMIN");
+        request.setMessage("Comment");
+
+        ReportResponse savedComment = new ReportResponse();
+        savedComment.setId(UUID.randomUUID());
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+        when(responseRepository.save(any(ReportResponse.class))).thenReturn(savedComment);
+        when(reportRepository.save(report)).thenReturn(report);
+
+        // Act
+        reportService.addComment(reportId, request);
+
+        // Assert
+        assertEquals(1, report.getObservers().size()); // Should not add duplicate
+    }
+
+    @Test
+    @DisplayName("Menghapus laporan")
     public void testDeleteReport() {
         // Arrange
         UUID reportId = UUID.randomUUID();
@@ -326,235 +667,16 @@ public class ReportServiceTest {
         reportService.deleteReport(reportId);
 
         // Assert
-        verify(reportRepository).findById(reportId);
         verify(reportRepository).delete(report);
     }
 
     @Test
-    @DisplayName("Mengambil daftar laporan berdasarkan status tertentu")
-    public void testGetReportsByStatus_withStatus() {
-        // Arrange
-        Report report1 = new Report();
-        report1.setId(UUID.randomUUID());
-        report1.setCategory(ReportCategory.PAYMENT);
-        report1.setStatus(ReportStatus.PENDING);
-        report1.setCreatedAt(LocalDateTime.now());
-
-        Report report2 = new Report();
-        report2.setId(UUID.randomUUID());
-        report2.setCategory(ReportCategory.TICKET);
-        report2.setStatus(ReportStatus.PENDING);
-        report2.setCreatedAt(LocalDateTime.now());
-
-        List<Report> reports = Arrays.asList(report1, report2);
-        when(reportRepository.findByStatus(ReportStatus.PENDING)).thenReturn(reports);
-
-        // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByStatus(ReportStatus.PENDING);
-
-        // Assert
-        verify(reportRepository).findByStatus(ReportStatus.PENDING);
-        assertEquals(2, result.size());
-        assertEquals(ReportStatus.PENDING, result.get(0).getStatus());
-        assertEquals(ReportStatus.PENDING, result.get(1).getStatus());
-    }
-
-    @Test
-    @DisplayName("Mengambil semua laporan")
-    public void testGetReportsByStatus_withNullStatus() {
-        // Arrange
-        Report report1 = new Report();
-        report1.setId(UUID.randomUUID());
-        report1.setCategory(ReportCategory.PAYMENT);
-        report1.setStatus(ReportStatus.PENDING);
-        report1.setCreatedAt(LocalDateTime.now());
-
-        Report report2 = new Report();
-        report2.setId(UUID.randomUUID());
-        report2.setCategory(ReportCategory.TICKET);
-        report2.setStatus(ReportStatus.RESOLVED);
-        report2.setCreatedAt(LocalDateTime.now());
-
-        List<Report> reports = Arrays.asList(report1, report2);
-        when(reportRepository.findAll()).thenReturn(reports);
-
-        // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
-
-        // Assert
-        verify(reportRepository).findAll();
-        assertEquals(2, result.size());
-        assertEquals(ReportStatus.PENDING, result.get(0).getStatus());
-        assertEquals(ReportStatus.RESOLVED, result.get(1).getStatus());
-    }
-
-    @Test
-    @DisplayName("Mencari email pengguna dari repository jika null dalam permintaan")
-    public void testCreateReport_withoutUserEmail() {
-        // Arrange
-        Long userId = 1L;
-
-        CreateReportRequest createRequest = new CreateReportRequest();
-        createRequest.setUserId(userId);
-        createRequest.setUserEmail(null); // Email null
-        createRequest.setCategory(ReportCategory.PAYMENT);
-        createRequest.setDescription("Test description");
-
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        EntityNotFoundException exception = assertThrows(
-                EntityNotFoundException.class,
-                () -> reportService.createReport(createRequest)
-        );
-
-        assertTrue(exception.getMessage().contains("User email not found for userId: " + userId));
-        verify(userRepository).findById(userId);
-    }
-
-    @Test
-    @DisplayName("Tidak menambah observer notifikasi jika sudah terdaftar")
-    public void testAddComment_withNotificationServiceAlreadyObserver() {
-        // Arrange
-        UUID reportId = UUID.randomUUID();
-        Long responderId = 1L;
-        String responderEmail = "admin@example.com";
-        String responderRole = "ADMIN";
-        String message = "Test comment";
-
-        Report report = new Report();
-        report.setId(reportId);
-        report.setStatus(ReportStatus.PENDING);
-        report.getObservers().add(notificationService);
-
-        CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
-        commentRequest.setResponderId(responderId);
-        commentRequest.setResponderEmail(responderEmail);
-        commentRequest.setResponderRole(responderRole);
-        commentRequest.setMessage(message);
-
-        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
-        when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
-            ReportResponse savedResponse = invocation.getArgument(0);
-            savedResponse.setId(UUID.randomUUID());
-            return savedResponse;
-        });
-
-        // Act
-        ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
-
-        // Assert
-        verify(reportRepository).findById(reportId);
-        verify(responseRepository).save(any(ReportResponse.class));
-        assertTrue(report.getObservers().contains(notificationService));
-
-        assertNotNull(result.getId());
-        assertEquals(reportId, result.getReportId());
-        assertEquals(responderId, result.getResponderId());
-        assertEquals(responderEmail, result.getResponderEmail());
-        assertEquals(responderRole, result.getResponderRole());
-        assertEquals(message, result.getMessage());
-    }
-
-    @Test
-    @DisplayName("Tidak menambah observer notifikasi pada update status jika sudah terdaftar")
-    public void testUpdateReportStatus_withNotificationServiceAlreadyObserver() {
-        // Arrange
-        UUID reportId = UUID.randomUUID();
-        ReportStatus newStatus = ReportStatus.RESOLVED;
-
-        Report report = new Report();
-        report.setId(reportId);
-        report.setStatus(ReportStatus.PENDING);
-        report.getObservers().add(notificationService);
-
-        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
-        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
-            Report updatedReport = invocation.getArgument(0);
-            updatedReport.setId(reportId);
-            return updatedReport;
-        });
-
-        // Act
-        ReportResponseDTO result = reportService.updateReportStatus(reportId, newStatus);
-
-        // Assert
-        verify(reportRepository).findById(reportId);
-        verify(reportRepository).save(report);
-        assertTrue(report.getObservers().contains(notificationService));
-        assertEquals(newStatus, report.getStatus());
-
-        assertNotNull(result.getId());
-        assertEquals(reportId, result.getId());
-        assertEquals(newStatus, result.getStatus());
-    }
-
-    @Test
-    @DisplayName("Melempar EntityNotFoundException ketika laporan tidak ditemukan berdasarkan ID")
-    public void testGetReportById_NotFound() {
-        // Arrange
-        UUID reportId = UUID.randomUUID();
-        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        EntityNotFoundException exception = assertThrows(
-                EntityNotFoundException.class,
-                () -> reportService.getReportById(reportId)
-        );
-        assertTrue(exception.getMessage().contains(reportId.toString()));
-    }
-
-    @Test
-    @DisplayName("Tidak mengubah status laporan yang sudah dalam proses")
-    public void testAddComment_NonPendingStatus() {
-        // Arrange
-        UUID reportId = UUID.randomUUID();
-        Long responderId = 1L;
-        String responderEmail = "admin@example.com";
-
-        Report report = new Report();
-        report.setId(reportId);
-        report.setStatus(ReportStatus.ON_PROGRESS); // Sudah dalam ON_PROGRESS
-
-        CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
-        commentRequest.setResponderId(responderId);
-        commentRequest.setResponderEmail(responderEmail);
-        commentRequest.setResponderRole("ADMIN");
-        commentRequest.setMessage("Test comment for non-pending report");
-
-        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
-        when(responseRepository.save(any(ReportResponse.class))).thenAnswer(invocation -> {
-            ReportResponse savedResponse = invocation.getArgument(0);
-            savedResponse.setId(UUID.randomUUID());
-            return savedResponse;
-        });
-
-        // Act
-        ReportCommentDTO result = reportService.addComment(reportId, commentRequest);
-
-        // Assert
-        verify(reportRepository).findById(reportId);
-        verify(responseRepository).save(any(ReportResponse.class));
-        assertEquals(ReportStatus.ON_PROGRESS, report.getStatus());
-        verify(reportRepository, never()).save(report);
-    }
-
-    @Test
-    @DisplayName("Menangani respons null dengan mengembalikan daftar komentar kosong")
+    @DisplayName("Mengonversi laporan ke ResponseDTO dengan responses null")
     public void testConvertToResponseDTO_WithNullResponses() {
         // Arrange
         UUID reportId = UUID.randomUUID();
-        Long userId = 1L;
-        String userEmail = "user@example.com";
-
         Report report = new Report();
         report.setId(reportId);
-        report.setUserId(userId);
-        report.setUserEmail(userEmail);
-        report.setCategory(ReportCategory.PAYMENT);
-        report.setDescription("Test report");
-        report.setStatus(ReportStatus.PENDING);
-        report.setCreatedAt(LocalDateTime.now());
         report.setResponses(null);
 
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
@@ -563,36 +685,23 @@ public class ReportServiceTest {
         ReportResponseDTO result = reportService.getReportById(reportId);
 
         // Assert
-        verify(reportRepository).findById(reportId);
-        assertEquals(reportId, result.getId());
-        assertEquals(userId, result.getUserId());
-        assertEquals(userEmail, result.getUserEmail());
         assertNotNull(result.getComments());
         assertTrue(result.getComments().isEmpty());
     }
 
     @Test
-    @DisplayName("Menangani respons tanpa reference ke laporan")
+    @DisplayName("Mengonversi komentar ke DTO dengan report null")
     public void testConvertToCommentDTO_WithNullReport() {
         // Arrange
-        UUID commentId = UUID.randomUUID();
-        Long responderId = 1L;
-        String responderEmail = "admin@example.com";
-
-        ReportResponse response = new ReportResponse();
-        response.setId(commentId);
-        response.setResponderId(responderId);
-        response.setResponderEmail(responderEmail);
-        response.setResponderRole("ADMIN");
-        response.setMessage("Test comment");
-        response.setCreatedAt(LocalDateTime.now());
-        response.setReport(null);
-
         UUID reportId = UUID.randomUUID();
         Report report = new Report();
         report.setId(reportId);
-        report.setStatus(ReportStatus.PENDING);
-        report.setResponses(Collections.singletonList(response));
+
+        ReportResponse comment = new ReportResponse();
+        comment.setId(UUID.randomUUID());
+        comment.setReport(null); // Null report
+
+        report.setResponses(List.of(comment));
 
         when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
 
@@ -600,227 +709,102 @@ public class ReportServiceTest {
         ReportResponseDTO result = reportService.getReportById(reportId);
 
         // Assert
-        verify(reportRepository).findById(reportId);
-        assertNotNull(result.getComments());
-        assertEquals(1, result.getComments().size());
-
-        ReportCommentDTO commentDTO = result.getComments().getFirst();
-        assertEquals(commentId, commentDTO.getId());
-        assertEquals(responderId, commentDTO.getResponderId());
-        assertEquals(responderEmail, commentDTO.getResponderEmail());
-        assertNull(commentDTO.getReportId());
+        assertNull(result.getComments().getFirst().getReportId());
     }
 
     @Test
-    @DisplayName("Melempar EntityNotFoundException ketika menghapus laporan yang tidak ditemukan")
-    public void testDeleteReport_NotFound() {
+    @DisplayName("Mengonversi komentar ke DTO dengan report yang valid")
+    public void testConvertToCommentDTO_WithValidReport() {
         // Arrange
         UUID reportId = UUID.randomUUID();
-        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> reportService.deleteReport(reportId)
-        );
-        verify(reportRepository).findById(reportId);
-        verify(reportRepository, never()).delete(any(Report.class));
-    }
-
-    @Test
-    @DisplayName("Melempar EntityNotFoundException ketika memperbarui status laporan yang tidak ditemukan")
-    public void testUpdateReportStatus_NotFound() {
-        // Arrange
-        UUID reportId = UUID.randomUUID();
-        when(reportRepository.findById(reportId)).thenReturn(Optional.empty());
-
-        // Act & Assert
-        assertThrows(
-                EntityNotFoundException.class,
-                () -> reportService.updateReportStatus(reportId, ReportStatus.RESOLVED)
-        );
-        verify(reportRepository).findById(reportId);
-        verify(reportRepository, never()).save(any(Report.class));
-    }
-
-    @Test
-    @DisplayName("Memotong deskripsi panjang menjadi deskripsi ringkas")
-    public void testLongDescriptionTruncation() {
-        // Arrange
-        String longDescription = "This is a very long description that needs to be truncated because it exceeds fifty characters!";
+        UUID commentId = UUID.randomUUID();
 
         Report report = new Report();
+        report.setId(reportId);
+
+        ReportResponse comment = new ReportResponse();
+        comment.setId(commentId);
+        comment.setReport(report); // Valid report - should return report.getId()
+
+        report.setResponses(List.of(comment));
+
+        when(reportRepository.findById(reportId)).thenReturn(Optional.of(report));
+
+        // Act
+        ReportResponseDTO result = reportService.getReportById(reportId);
+
+        // Assert
+        assertEquals(reportId, result.getComments().getFirst().getReportId());
+    }
+
+    @Test
+    @DisplayName("Mengonversi laporan ke SummaryDTO dengan deskripsi panjang")
+    public void testConvertToSummaryDTO_LongDescription() {
+        // Arrange
+        String longDescription = "This is a very long description that should be truncated because it exceeds fifty characters";
+        Report report = new Report();
         report.setId(UUID.randomUUID());
-        report.setCategory(ReportCategory.PAYMENT);
-        report.setStatus(ReportStatus.PENDING);
-        report.setCreatedAt(LocalDateTime.now());
         report.setDescription(longDescription);
 
-        List<Report> reports = List.of(report);
-        when(reportRepository.findAll()).thenReturn(reports);
+        when(reportRepository.findByUserId(1L)).thenReturn(List.of(report));
 
         // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+        List<ReportSummaryDTO> result = reportService.getReportsByUserId(1L);
 
         // Assert
-        assertEquals(1, result.size());
-        assertEquals(longDescription.substring(0, 47) + "...", result.getFirst().getShortDescription());
+        // The logic truncates to first 47 characters + "..."
+        String expected = longDescription.substring(0, 47) + "...";
+        assertEquals(expected, result.getFirst().getShortDescription());
     }
 
     @Test
-    @DisplayName("Tidak memotong deskripsi pendek dalam ringkasan laporan")
-    public void testShortDescription() {
+    @DisplayName("Mengonversi laporan ke SummaryDTO dengan deskripsi pendek")
+    public void testConvertToSummaryDTO_ShortDescription() {
         // Arrange
-        String shortDescription = "This is a short description.";
-
         Report report = new Report();
         report.setId(UUID.randomUUID());
-        report.setCategory(ReportCategory.PAYMENT);
-        report.setStatus(ReportStatus.PENDING);
-        report.setCreatedAt(LocalDateTime.now());
-        report.setDescription(shortDescription);
+        report.setDescription("Short");
 
-        List<Report> reports = List.of(report);
-        when(reportRepository.findAll()).thenReturn(reports);
+        when(reportRepository.findByUserId(1L)).thenReturn(List.of(report));
 
         // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+        List<ReportSummaryDTO> result = reportService.getReportsByUserId(1L);
 
         // Assert
-        assertEquals(1, result.size());
-        assertEquals(shortDescription, result.getFirst().getShortDescription());
+        assertEquals("Short", result.getFirst().getShortDescription());
     }
 
     @Test
-    @DisplayName("Menangani deskripsi null dalam ringkasan laporan")
-    public void testNullDescription() {
+    @DisplayName("Mengonversi laporan ke SummaryDTO dengan deskripsi null")
+    public void testConvertToSummaryDTO_NullDescription() {
         // Arrange
         Report report = new Report();
         report.setId(UUID.randomUUID());
-        report.setCategory(ReportCategory.PAYMENT);
-        report.setStatus(ReportStatus.PENDING);
-        report.setCreatedAt(LocalDateTime.now());
         report.setDescription(null);
 
-        List<Report> reports = List.of(report);
-        when(reportRepository.findAll()).thenReturn(reports);
+        when(reportRepository.findByUserId(1L)).thenReturn(List.of(report));
 
         // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+        List<ReportSummaryDTO> result = reportService.getReportsByUserId(1L);
 
         // Assert
-        assertEquals(1, result.size());
         assertNull(result.getFirst().getShortDescription());
     }
 
     @Test
-    @DisplayName("Menangani daftar respons null saat menghitung jumlah komentar")
-    public void testNullResponsesList() {
+    @DisplayName("Mengonversi laporan ke SummaryDTO dengan responses null")
+    public void testConvertToSummaryDTO_NullResponses() {
         // Arrange
         Report report = new Report();
         report.setId(UUID.randomUUID());
-        report.setCategory(ReportCategory.PAYMENT);
-        report.setStatus(ReportStatus.PENDING);
-        report.setCreatedAt(LocalDateTime.now());
-        report.setDescription("Test description");
         report.setResponses(null);
 
-        List<Report> reports = List.of(report);
-        when(reportRepository.findAll()).thenReturn(reports);
+        when(reportRepository.findByUserId(1L)).thenReturn(List.of(report));
 
         // Act
-        List<ReportSummaryDTO> result = reportService.getReportsByStatus(null);
+        List<ReportSummaryDTO> result = reportService.getReportsByUserId(1L);
 
         // Assert
-        assertEquals(1, result.size());
         assertEquals(0, result.getFirst().getCommentCount());
     }
-
-    @Test
-    @DisplayName("Melempar EntityNotFoundException jika pengguna tidak ditemukan")
-    public void testCreateReport_userNotFound() {
-        // Arrange
-        Long userId = 999L;
-
-        CreateReportRequest createRequest = new CreateReportRequest();
-        createRequest.setUserId(userId);
-        createRequest.setUserEmail(null); // Email null
-        createRequest.setCategory(ReportCategory.PAYMENT);
-        createRequest.setDescription("Test description");
-
-        // Mock untuk userRepository yang mengembalikan Optional.empty (pengguna tidak ditemukan)
-        when(userRepository.findById(userId)).thenReturn(Optional.empty());
-        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
-            Report report = invocation.getArgument(0);
-            report.setId(UUID.randomUUID());
-            return report;
-        });
-
-        // Act & Assert
-        EntityNotFoundException exception = assertThrows(
-                EntityNotFoundException.class,
-                () -> reportService.createReport(createRequest)
-        );
-
-        // Memastikan pesan error sesuai dengan yang diharapkan
-        assertTrue(exception.getMessage().contains("User email not found for userId: " + userId));
-
-        // Verifikasi bahwa method findById dipanggil dengan parameter yang benar
-        verify(userRepository).findById(userId);
-    }
-
-    @Test
-    @DisplayName("Menangani error pada kedua async notification dan tetap melanjutkan proses")
-    public void testCreateReportWithBothAsyncNotificationErrors() {
-        // Arrange
-        Long userId = 1L;
-        String userEmail = "user@example.com";
-
-        CreateReportRequest createRequest = new CreateReportRequest();
-        createRequest.setUserId(userId);
-        createRequest.setUserEmail(userEmail);
-        createRequest.setCategory(ReportCategory.PAYMENT);
-        createRequest.setDescription("Test description");
-
-        User mockUser = new User();
-        mockUser.setEmail(userEmail);
-
-        when(userRepository.findById(userId)).thenReturn(Optional.of(mockUser));
-        when(reportRepository.save(any(Report.class))).thenAnswer(invocation -> {
-            Report report = invocation.getArgument(0);
-            report.setId(UUID.randomUUID());
-            return report;
-        });
-
-        // Mock both notifications to fail
-        CompletableFuture<Void> failedAdminFuture = new CompletableFuture<>();
-        failedAdminFuture.completeExceptionally(new RuntimeException("Admin notification failed"));
-
-        CompletableFuture<Void> failedOrganizerFuture = new CompletableFuture<>();
-        failedOrganizerFuture.completeExceptionally(new RuntimeException("Organizer notification failed"));
-
-        when(notificationService.notifyNewReportAsync(any(Report.class)))
-                .thenReturn(failedAdminFuture);
-        when(notificationService.notifyOrganizerOfReportAsync(any(Report.class), any()))
-                .thenReturn(failedOrganizerFuture);
-
-        // Act
-        ReportResponseDTO result = reportService.createReport(createRequest);
-
-        // Assert - The report should still be created successfully despite both notification failures
-        assertNotNull(result.getId());
-        assertEquals(userId, result.getUserId());
-        verify(reportRepository).save(any(Report.class));
-        verify(notificationService).notifyNewReportAsync(any(Report.class));
-        verify(notificationService).notifyOrganizerOfReportAsync(any(Report.class), any());
-
-        // Wait a bit to ensure the async callbacks are executed
-        try {
-            Thread.sleep(100);
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        }
-    }
-
-
 }

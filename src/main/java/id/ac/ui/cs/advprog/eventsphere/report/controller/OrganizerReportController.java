@@ -33,18 +33,25 @@ public class OrganizerReportController {
 
     @GetMapping
     public ResponseEntity<List<ReportSummaryDTO>> getReportsByStatus(@RequestParam(required = false) ReportStatus status) {
-        List<ReportSummaryDTO> reports;
-        if (status != null) {
-            reports = reportService.getReportsByStatus(status);
-        } else {
-            // Default to PENDING if no status is provided
-            reports = reportService.getReportsByStatus(ReportStatus.PENDING);
-        }
+        User currentUser = authService.getCurrentUser();
+        List<ReportSummaryDTO> reports = reportService.getReportsByOrganizerEventsAndStatus(currentUser.getId(), status);
+        return ResponseEntity.ok(reports);
+    }
+
+    @GetMapping("/event/{eventId}")
+    public ResponseEntity<List<ReportSummaryDTO>> getReportsByEventId(@PathVariable Long eventId) {
+        List<ReportSummaryDTO> reports = reportService.getReportsByEventId(eventId);
         return ResponseEntity.ok(reports);
     }
 
     @GetMapping("/{id}")
     public ResponseEntity<ReportResponseDTO> getReportById(@PathVariable UUID id) {
+        User currentUser = authService.getCurrentUser();
+
+        if (!reportService.isReportFromOrganizerEvent(id, currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         ReportResponseDTO report = reportService.getReportById(id);
         return ResponseEntity.ok(report);
     }
@@ -55,6 +62,10 @@ public class OrganizerReportController {
             @RequestBody CreateReportCommentRequest commentRequest) {
 
         User currentUser = authService.getCurrentUser();
+
+        if (!reportService.isReportFromOrganizerEvent(reportId, currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
 
         commentRequest.setResponderId(currentUser.getId());
         commentRequest.setResponderRole("ORGANIZER");
@@ -68,13 +79,26 @@ public class OrganizerReportController {
     public ResponseEntity<ReportResponseDTO> updateReportStatus(
             @PathVariable UUID id,
             @RequestParam ReportStatus status) {
+
+        User currentUser = authService.getCurrentUser();
+
+        if (!reportService.isReportFromOrganizerEvent(id, currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         ReportResponseDTO updatedReport = reportService.updateReportStatus(id, status);
         return ResponseEntity.ok(updatedReport);
     }
 
     @DeleteMapping("/{id}")
     public ResponseEntity<Void> deleteReport(@PathVariable UUID id) {
+        User currentUser = authService.getCurrentUser();
+
+        if (!reportService.isReportFromOrganizerEvent(id, currentUser.getId())) {
+            return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
+        }
+
         reportService.deleteReport(id);
-        return ResponseEntity.noContent().build(); // 204 No Content
+        return ResponseEntity.noContent().build();
     }
 }

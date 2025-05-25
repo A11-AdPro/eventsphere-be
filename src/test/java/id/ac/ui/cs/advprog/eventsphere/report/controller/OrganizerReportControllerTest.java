@@ -24,6 +24,7 @@ import org.springframework.test.web.servlet.setup.MockMvcBuilders;
 
 import java.time.LocalDateTime;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.UUID;
 
@@ -91,17 +92,18 @@ public class OrganizerReportControllerTest {
         summaryDTOs.add(dto1);
         summaryDTOs.add(dto2);
 
-        when(reportService.getReportsByStatus(ReportStatus.PENDING)).thenReturn(summaryDTOs);
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.getReportsByOrganizerEventsAndStatus(mockUser.getId(), ReportStatus.PENDING)).thenReturn(summaryDTOs);
 
-        // Act
+        // Act & Assert
         mockMvc.perform(get("/api/organizer/reports")
                         .param("status", "PENDING"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$[0].id").value(reportId1.toString()))
                 .andExpect(jsonPath("$[1].id").value(reportId2.toString()));
 
-        // Assert
-        verify(reportService).getReportsByStatus(ReportStatus.PENDING);
+        verify(authService).getCurrentUser();
+        verify(reportService).getReportsByOrganizerEventsAndStatus(mockUser.getId(), ReportStatus.PENDING);
     }
 
     @Test
@@ -121,15 +123,18 @@ public class OrganizerReportControllerTest {
         responseDTO.setStatus(ReportStatus.PENDING);
         responseDTO.setCreatedAt(LocalDateTime.now());
 
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(true);
         when(reportService.getReportById(reportId)).thenReturn(responseDTO);
 
-        // Act
+        // Act & Assert
         mockMvc.perform(get("/api/organizer/reports/{id}", reportId))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
                 .andExpect(jsonPath("$.userEmail").value(userEmail));
 
-        // Assert
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
         verify(reportService).getReportById(reportId);
     }
 
@@ -137,8 +142,6 @@ public class OrganizerReportControllerTest {
     @DisplayName("Menambahkan komentar pada laporan")
     public void testAddComment() throws Exception {
         // Arrange
-        when(authService.getCurrentUser()).thenReturn(mockUser);
-
         UUID reportId = UUID.randomUUID();
         Long responderId = 1L;
         String responderEmail = "organizer@example.com";
@@ -156,9 +159,11 @@ public class OrganizerReportControllerTest {
         commentDTO.setMessage("Response from organizer");
         commentDTO.setCreatedAt(LocalDateTime.now());
 
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(true);
         when(reportService.addComment(eq(reportId), any(CreateReportCommentRequest.class))).thenReturn(commentDTO);
 
-        // Act
+        // Act & Assert
         mockMvc.perform(post("/api/organizer/reports/{reportId}/comments", reportId)
                         .contentType(MediaType.APPLICATION_JSON)
                         .content(objectMapper.writeValueAsString(commentRequest)))
@@ -166,8 +171,8 @@ public class OrganizerReportControllerTest {
                 .andExpect(jsonPath("$.id").value(commentId.toString()))
                 .andExpect(jsonPath("$.reportId").value(reportId.toString()));
 
-        // Assert
         verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
         verify(reportService).addComment(eq(reportId), any(CreateReportCommentRequest.class));
     }
 
@@ -181,51 +186,20 @@ public class OrganizerReportControllerTest {
         updatedReportDTO.setId(reportId);
         updatedReportDTO.setStatus(ReportStatus.ON_PROGRESS);
 
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(true);
         when(reportService.updateReportStatus(eq(reportId), eq(ReportStatus.ON_PROGRESS))).thenReturn(updatedReportDTO);
 
-        // Act
+        // Act & Assert
         mockMvc.perform(patch("/api/organizer/reports/{id}/status", reportId)
                         .param("status", "ON_PROGRESS"))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.id").value(reportId.toString()))
                 .andExpect(jsonPath("$.status").value("ON_PROGRESS"));
 
-        // Assert
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
         verify(reportService).updateReportStatus(reportId, ReportStatus.ON_PROGRESS);
-    }
-
-    @Test
-    @DisplayName("Mendapatkan laporan dengan status PENDING jika parameter status tidak diberikan")
-    public void testGetReportsByStatus_DefaultPending() throws Exception {
-        // Arrange
-        UUID reportId = UUID.randomUUID();
-
-        ReportSummaryDTO dto = new ReportSummaryDTO();
-        dto.setId(reportId);
-        dto.setUserId(1L);
-        dto.setUserEmail("user@example.com");
-        dto.setCategory(ReportCategory.EVENT);
-        dto.setStatus(ReportStatus.PENDING);
-        dto.setShortDescription("No status param issue");
-        dto.setCreatedAt(LocalDateTime.now());
-        dto.setCommentCount(2);
-
-        List<ReportSummaryDTO> summaryDTOs = List.of(dto);
-
-        // Mocking service
-        when(reportService.getReportsByStatus(ReportStatus.PENDING)).thenReturn(summaryDTOs);
-
-        // Act
-        mockMvc.perform(get("/api/organizer/reports"))
-                .andExpect(status().isOk())  // Memastikan status HTTP 200 (OK)
-                .andExpect(jsonPath("$[0].id").value(reportId.toString()))  // Memastikan ID laporan sesuai
-                .andExpect(jsonPath("$[0].userId").value(1))  // Memastikan ID pengguna sesuai
-                .andExpect(jsonPath("$[0].userEmail").value("user@example.com"))  // Memastikan email pengguna sesuai
-                .andExpect(jsonPath("$[0].status").value("PENDING"))  // Memastikan status laporan sesuai dengan PENDING
-                .andExpect(jsonPath("$[0].category").value("EVENT"));  // Memastikan kategori laporan sesuai dengan EVENT
-
-        // VerifyING sebagai default
-        verify(reportService).getReportsByStatus(ReportStatus.PENDING);
     }
 
     @Test
@@ -234,14 +208,140 @@ public class OrganizerReportControllerTest {
         // Arrange
         UUID reportId = UUID.randomUUID();
 
-        // Mock service
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(true);
         doNothing().when(reportService).deleteReport(reportId);
 
-        // Act
+        // Act & Assert
         mockMvc.perform(delete("/api/organizer/reports/{id}", reportId))
                 .andExpect(status().isNoContent());
 
-        // Verify that reportService.deleteReport() was called with the correct ID
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
         verify(reportService).deleteReport(reportId);
+    }
+
+    @Test
+    @DisplayName("Mendapatkan laporan berdasarkan ID event")
+    public void testGetReportsByEventId() throws Exception {
+        // Arrange
+        Long eventId = 1L;
+        UUID reportId1 = UUID.randomUUID();
+        UUID reportId2 = UUID.randomUUID();
+
+        ReportSummaryDTO dto1 = new ReportSummaryDTO();
+        dto1.setId(reportId1);
+        dto1.setEventId(eventId);
+        dto1.setUserId(1L);
+        dto1.setUserEmail("user1@example.com");
+        dto1.setCategory(ReportCategory.EVENT);
+        dto1.setStatus(ReportStatus.PENDING);
+        dto1.setShortDescription("Event issue 1");
+        dto1.setCreatedAt(LocalDateTime.now());
+        dto1.setCommentCount(0);
+
+        ReportSummaryDTO dto2 = new ReportSummaryDTO();
+        dto2.setId(reportId2);
+        dto2.setEventId(eventId);
+        dto2.setUserId(2L);
+        dto2.setUserEmail("user2@example.com");
+        dto2.setCategory(ReportCategory.TICKET);
+        dto2.setStatus(ReportStatus.ON_PROGRESS);
+        dto2.setShortDescription("Ticket issue");
+        dto2.setCreatedAt(LocalDateTime.now());
+        dto2.setCommentCount(1);
+
+        List<ReportSummaryDTO> reports = Arrays.asList(dto1, dto2);
+
+        when(reportService.getReportsByEventId(eventId)).thenReturn(reports);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/organizer/reports/event/{eventId}", eventId))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$[0].id").value(reportId1.toString()))
+                .andExpect(jsonPath("$[0].eventId").value(eventId))
+                .andExpect(jsonPath("$[0].status").value("PENDING"))
+                .andExpect(jsonPath("$[1].id").value(reportId2.toString()))
+                .andExpect(jsonPath("$[1].eventId").value(eventId))
+                .andExpect(jsonPath("$[1].status").value("ON_PROGRESS"));
+
+        verify(reportService).getReportsByEventId(eventId);
+    }
+
+    @Test
+    @DisplayName("Mengembalikan FORBIDDEN ketika mencoba mengakses laporan yang bukan milik organizer")
+    public void testGetReportById_Forbidden() throws Exception {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(false);
+
+        // Act & Assert
+        mockMvc.perform(get("/api/organizer/reports/{id}", reportId))
+                .andExpect(status().isForbidden());
+
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
+        verify(reportService, never()).getReportById(any());
+    }
+
+    @Test
+    @DisplayName("Mengembalikan FORBIDDEN ketika mencoba menambahkan komentar ke laporan yang bukan milik organizer")
+    public void testAddComment_Forbidden() throws Exception {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+        CreateReportCommentRequest commentRequest = new CreateReportCommentRequest();
+        commentRequest.setMessage("Test comment");
+
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(false);
+
+        // Act & Assert
+        mockMvc.perform(post("/api/organizer/reports/{reportId}/comments", reportId)
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content(objectMapper.writeValueAsString(commentRequest)))
+                .andExpect(status().isForbidden());
+
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
+        verify(reportService, never()).addComment(any(), any());
+    }
+
+    @Test
+    @DisplayName("Mengembalikan FORBIDDEN ketika mencoba memperbarui status laporan yang bukan milik organizer")
+    public void testUpdateReportStatus_Forbidden() throws Exception {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(false);
+
+        // Act & Assert
+        mockMvc.perform(patch("/api/organizer/reports/{id}/status", reportId)
+                        .param("status", "ON_PROGRESS"))
+                .andExpect(status().isForbidden());
+
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
+        verify(reportService, never()).updateReportStatus(any(), any());
+    }
+
+    @Test
+    @DisplayName("Mengembalikan FORBIDDEN ketika mencoba menghapus laporan yang bukan milik organizer")
+    public void testDeleteReport_Forbidden() throws Exception {
+        // Arrange
+        UUID reportId = UUID.randomUUID();
+
+        when(authService.getCurrentUser()).thenReturn(mockUser);
+        when(reportService.isReportFromOrganizerEvent(reportId, mockUser.getId())).thenReturn(false);
+
+        // Act & Assert
+        mockMvc.perform(delete("/api/organizer/reports/{id}", reportId))
+                .andExpect(status().isForbidden());
+
+        verify(authService).getCurrentUser();
+        verify(reportService).isReportFromOrganizerEvent(reportId, mockUser.getId());
+        verify(reportService, never()).deleteReport(any());
     }
 }
