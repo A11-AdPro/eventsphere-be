@@ -1,6 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.review.model;
 
-import com.fasterxml.jackson.annotation.JsonManagedReference; // Added import
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import com.fasterxml.jackson.annotation.JsonManagedReference;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -18,6 +19,7 @@ import java.util.List;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "reviews")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class Review {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
@@ -31,6 +33,7 @@ public class Review {
 
     @ManyToOne(fetch = FetchType.EAGER)
     @JoinColumn(name = "user_id", nullable = false)
+    @JsonIgnoreProperties({"password", "balance", "createdAt", "updatedAt", "hibernateLazyInitializer", "handler"})
     private User user;
 
     @Column(nullable = false)
@@ -45,14 +48,16 @@ public class Review {
     @Column(nullable = false)
     private Boolean isVisible = true;
 
-    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER) // Ensured EAGER fetch
-    @JsonManagedReference // Added annotation
+    @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
+    @JsonManagedReference
     private List<ReviewImage> images = new ArrayList<>();
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonManagedReference
     private List<ReviewResponse> responses = new ArrayList<>();
 
     @OneToMany(mappedBy = "review", cascade = CascadeType.ALL, orphanRemoval = true)
+    @JsonIgnoreProperties({"review", "hibernateLazyInitializer", "handler"})
     private List<ReviewReport> reports = new ArrayList<>();
 
     private LocalDateTime createdAt;
