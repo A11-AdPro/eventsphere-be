@@ -21,6 +21,10 @@ public class TicketResponse {
         this.eventId = builder.eventId;
     }
 
+    public static Builder builder() {
+        return new Builder();
+    }
+
     public static class Builder {
         private Long id;
         private String name;
@@ -29,6 +33,7 @@ public class TicketResponse {
         private TicketCategory category;
         private boolean soldOut;
         private Long eventId;
+
 
         public Builder id(Long id) {
             this.id = id;
@@ -101,6 +106,11 @@ public class TicketResponse {
         return eventId;
     }
 }
+
+
+
+
+
 
 
 
