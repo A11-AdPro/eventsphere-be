@@ -43,6 +43,12 @@ class EventControllerTest {
     private EventUpdateDTO updateDTO;
     private EventResponseDTO responseDTO;
 
+    // Definisikan konstanta message jika belum ada di controller asli,
+    // atau pastikan message ini sesuai dengan yang digunakan di controller.
+    // Jika sudah ada di controller, Anda tidak perlu mendefinisikannya di sini.
+    // private static final String USER_NOT_FOUND_MESSAGE = "User not found";
+
+
     @BeforeEach
     void setUp() {
         organizer = new User();
@@ -74,7 +80,7 @@ class EventControllerTest {
         mockAuthorization();
         when(userRepository.findByEmail("organizer@test.com"))
                 .thenReturn(Optional.of(organizer));
-        when(eventService.createEvent(eq(createDTO), eq(organizer)))
+        when(eventService.createEvent(createDTO, organizer))
                 .thenReturn(responseDTO);
 
         ResponseEntity<EventResponseDTO> response =
@@ -82,7 +88,7 @@ class EventControllerTest {
 
         assertEquals(HttpStatus.CREATED, response.getStatusCode());
         assertEquals(responseDTO, response.getBody());
-        verify(eventService).createEvent(eq(createDTO), eq(organizer));
+        verify(eventService).createEvent(createDTO, organizer);
     }
 
     @Test
@@ -138,7 +144,7 @@ class EventControllerTest {
         EventResponseDTO updatedDTO = new EventResponseDTO();
         updatedDTO.setId(1L);
         updatedDTO.setTitle("Updated Title");
-        when(eventService.updateEvent(eq(1L), eq(updateDTO), eq(organizer)))
+        when(eventService.updateEvent(1L, updateDTO, organizer))
                 .thenReturn(updatedDTO);
 
         ResponseEntity<EventResponseDTO> response =
@@ -146,7 +152,7 @@ class EventControllerTest {
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertEquals(updatedDTO, response.getBody());
-        verify(eventService).updateEvent(eq(1L), eq(updateDTO), eq(organizer));
+        verify(eventService).updateEvent(1L, updateDTO, organizer);
     }
 
     @Test
@@ -181,16 +187,68 @@ class EventControllerTest {
         verify(eventService).deleteEvent(1L, organizer);
     }
 
+    // Test yang sudah ada untuk createEvent jika user tidak ditemukan
     @Test
     void testCreateEvent_UserNotFound() {
         mockAuthorization();
         when(userRepository.findByEmail("organizer@test.com"))
                 .thenReturn(Optional.empty());
 
-        assertThrows(UnauthorizedAccessException.class,
+        UnauthorizedAccessException exception = assertThrows(UnauthorizedAccessException.class,
                 () -> eventController.createEvent(createDTO));
+        // Anda bisa menambahkan assert untuk message exception jika USER_NOT_FOUND_MESSAGE didefinisikan dan konsisten
+
 
         verify(eventService, never()).createEvent(any(), any());
+    }
+
+    @Test
+    void testGetOrganizerEvents_UserNotFound() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.empty());
+
+        UnauthorizedAccessException exception = assertThrows(UnauthorizedAccessException.class,
+                () -> eventController.getOrganizerEvents());
+
+        verify(eventService, never()).getActiveEventsByOrganizer(any());
+    }
+
+    @Test
+    void testUpdateEvent_UserNotFound() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.empty());
+
+        UnauthorizedAccessException exception = assertThrows(UnauthorizedAccessException.class,
+                () -> eventController.updateEvent(1L, updateDTO));
+
+
+        verify(eventService, never()).updateEvent(anyLong(), any(EventUpdateDTO.class), any(User.class));
+    }
+
+    @Test
+    void testCancelEvent_UserNotFound() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.empty());
+
+        UnauthorizedAccessException exception = assertThrows(UnauthorizedAccessException.class,
+                () -> eventController.cancelEvent(1L));
+
+        verify(eventService, never()).cancelEvent(anyLong(), any(User.class));
+    }
+
+    @Test
+    void testDeleteEvent_UserNotFound() {
+        mockAuthorization();
+        when(userRepository.findByEmail("organizer@test.com"))
+                .thenReturn(Optional.empty());
+
+        UnauthorizedAccessException exception = assertThrows(UnauthorizedAccessException.class,
+                () -> eventController.deleteEvent(1L));
+
+        verify(eventService, never()).deleteEvent(anyLong(), any(User.class));
     }
 
     private void mockAuthorization() {

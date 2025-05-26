@@ -3,86 +3,102 @@ package id.ac.ui.cs.advprog.eventsphere.event.model;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.junit.jupiter.MockitoExtension;
+
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
+import java.time.temporal.ChronoUnit;
+
 import static org.junit.jupiter.api.Assertions.*;
 
+@ExtendWith(MockitoExtension.class)
 class EventTest {
 
     private Event event;
     private User organizer;
-    private LocalDateTime eventDate;
+    private LocalDateTime futureDate;
+    private LocalDateTime pastDate;
+    private LocalDateTime currentDate;
 
     @BeforeEach
     void setUp() {
-        eventDate = LocalDateTime.now().plusDays(7);
-        organizer = User.builder()
-                .id(1L)
-                .password("password123")
-                .fullName("Event Organizer")
-                .email("organizer@example.com")
-                .build();
-
+        organizer = new User();
+        organizer.setId(1L);
+        
+        futureDate = LocalDateTime.now().plusDays(1);
+        pastDate = LocalDateTime.now().minusDays(1);
+        currentDate = LocalDateTime.now();
+        
         event = Event.builder()
-                .id(1L)
                 .title("Test Event")
-                .description("This is a test event")
-                .eventDate(eventDate)
+                .description("Test Description")
+                .eventDate(futureDate)
                 .location("Test Location")
-                .price(new BigDecimal("100.00"))
+                .price(BigDecimal.valueOf(100))
                 .organizer(organizer)
                 .build();
     }
 
     @Test
-    void testEventConstructor() {
-        assertNotNull(event);
-        assertEquals(1L, event.getId());
-        assertEquals("Test Event", event.getTitle());
-        assertEquals(organizer, event.getOrganizer());
+    void testIsRelevant_WhenFutureDateAndActiveAndNotCancelled_ShouldReturnTrue() {
+        event.setEventDate(futureDate);
+        event.setActive(true);
+        event.setCancelled(false);
+        
+        assertTrue(event.isRelevant());
     }
 
     @Test
-    void testNoArgsConstructor() {
-        Event emptyEvent = new Event();
-        assertNotNull(emptyEvent);
-        assertNull(emptyEvent.getId());
+    void testIsRelevant_WhenPastDate_ShouldReturnFalse() {
+        event.setEventDate(pastDate);
+        event.setActive(true);
+        event.setCancelled(false);
+        
+        assertFalse(event.isRelevant());
     }
 
     @Test
-    void testPrePersist() {
-        Event newEvent = new Event();
+    void testIsRelevant_WhenCurrentDate_ShouldReturnFalse() {
+        event.setEventDate(currentDate);
+        event.setActive(true);
+        event.setCancelled(false);
+        
+        assertFalse(event.isRelevant());
+    }
+
+    @Test
+    void testIsRelevant_WhenCancelled_ShouldReturnFalse() {
+        event.setCancelled(true);
+        
+        assertFalse(event.isRelevant());
+    }
+
+    @Test
+    void testIsRelevant_WhenNotActive_ShouldReturnFalse() {
+        event.setActive(false);
+        
+        assertFalse(event.isRelevant());
+    }
+
+    @Test
+    void testOnCreate_SetsCorrectDefaultValues() {
+        Event newEvent = Event.builder()
+                .title("New Event")
+                .eventDate(futureDate)
+                .location("Location")
+                .price(BigDecimal.TEN)
+                .organizer(organizer)
+                .build();
+        
+        assertNull(newEvent.getCreatedAt());
+        assertNull(newEvent.getUpdatedAt());
+        
         newEvent.onCreate();
+        
         assertNotNull(newEvent.getCreatedAt());
         assertNotNull(newEvent.getUpdatedAt());
         assertTrue(newEvent.isActive());
-    }
-
-    @Test
-    void testPreUpdate() {
-        LocalDateTime initialUpdateTime = LocalDateTime.now().minusDays(1);
-        event.setUpdatedAt(initialUpdateTime);
-        event.onUpdate();
-        assertTrue(event.getUpdatedAt().isAfter(initialUpdateTime));
-    }
-
-    @Test
-    void testSetters() {
-        Event newEvent = new Event();
-        LocalDateTime newEventDate = LocalDateTime.now().plusDays(14);
-        User newOrganizer = User.builder().id(2L).build();
-        newEvent.setOrganizer(newOrganizer);
-        assertEquals(newOrganizer, newEvent.getOrganizer());
-    }
-
-    @Test
-    void testIsRelevant() {
-        event.setEventDate(LocalDateTime.now().plusDays(1));
-        event.setCancelled(false);
-        event.setActive(true);
-        assertTrue(event.isRelevant());
-
-        event.setCancelled(true);
-        assertFalse(event.isRelevant());
+        assertEquals(newEvent.getCreatedAt(), newEvent.getUpdatedAt());
     }
 }

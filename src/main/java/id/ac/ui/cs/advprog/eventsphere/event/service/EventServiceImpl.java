@@ -27,6 +27,7 @@ public class EventServiceImpl implements EventService {
     
     private final EventRepository eventRepository;
     private final ModelMapper modelMapper;
+    private final String EVENT_NOT_FOUND_PREFIX = "Event not found with id: ";
     
     @Override
     @Transactional
@@ -69,7 +70,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public EventResponseDTO updateEvent(Long id, EventUpdateDTO eventUpdateDTO, User organizer) {
         Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
+                .orElseThrow(() -> new EventNotFoundException(EVENT_NOT_FOUND_PREFIX + id));
         
         validateEventOwnership(event, organizer);
         validateEventNotTooClose(event.getEventDate(), 24);
@@ -84,7 +85,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public String cancelEvent(Long id, User organizer) {
         Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
+                .orElseThrow(() -> new EventNotFoundException(EVENT_NOT_FOUND_PREFIX + id));
         
         validateEventOwnership(event, organizer);
         
@@ -102,7 +103,7 @@ public class EventServiceImpl implements EventService {
     @Transactional
     public String deleteEvent(Long id, User organizer) {
         Event event = eventRepository.findById(id)
-                .orElseThrow(() -> new EventNotFoundException("Event not found with id: " + id));
+                .orElseThrow(() -> new EventNotFoundException(EVENT_NOT_FOUND_PREFIX + id));
         
         validateEventOwnership(event, organizer);
 

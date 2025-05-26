@@ -13,7 +13,6 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.security.access.prepost.PreAuthorize;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.core.userdetails.UserDetails;
@@ -21,7 +20,6 @@ import org.springframework.security.core.userdetails.UserDetails;
 import java.util.List;
 import java.time.LocalDateTime;
 import java.util.Map;
-import java.util.Optional;
 
 @RestController
 @RequestMapping("/api/events")
@@ -30,6 +28,7 @@ public class EventController {
     
     private final EventService eventService;
     private final UserRepository userRepository;
+    private final String USER_NOT_FOUND_MESSAGE = "User not found";
     
     @PostMapping
     @PreAuthorize("hasRole('ROLE_ORGANIZER')")
@@ -39,7 +38,7 @@ public class EventController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
         User organizer = userRepository.findByEmail(email)
-            .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
+            .orElseThrow(() -> new UnauthorizedAccessException(USER_NOT_FOUND_MESSAGE));
 
         return ResponseEntity.status(HttpStatus.CREATED)
             .body(eventService.createEvent(eventCreateDTO, organizer));
@@ -62,7 +61,7 @@ public class EventController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
         User organizer = userRepository.findByEmail(email)
-            .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
+            .orElseThrow(() -> new UnauthorizedAccessException(USER_NOT_FOUND_MESSAGE));
 
         return ResponseEntity.ok(eventService.getActiveEventsByOrganizer(organizer));
     }
@@ -76,7 +75,7 @@ public class EventController {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
         User organizer = userRepository.findByEmail(email)
-            .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
+            .orElseThrow(() -> new UnauthorizedAccessException(USER_NOT_FOUND_MESSAGE));
             
         return ResponseEntity.ok(eventService.updateEvent(id, eventUpdateDTO, organizer));
     }
@@ -89,7 +88,7 @@ public class EventController {
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
 
         User organizer = userRepository.findByEmail(email)
-            .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
+            .orElseThrow(() -> new UnauthorizedAccessException(USER_NOT_FOUND_MESSAGE));
         
         String message = eventService.cancelEvent(id, organizer);
         return ResponseEntity.ok(
@@ -109,7 +108,7 @@ public class EventController {
         String email = ((UserDetails) auth.getPrincipal()).getUsername();
 
         User organizer = userRepository.findByEmail(email)
-            .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
+            .orElseThrow(() -> new UnauthorizedAccessException(USER_NOT_FOUND_MESSAGE));
             
         String message = eventService.deleteEvent(id, organizer);
         return ResponseEntity.ok(

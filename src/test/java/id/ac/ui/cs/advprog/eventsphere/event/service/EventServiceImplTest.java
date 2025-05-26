@@ -15,6 +15,8 @@ import org.modelmapper.ModelMapper;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ExecutionException;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.eq;
 import static org.mockito.Mockito.*;
@@ -182,11 +184,11 @@ class EventServiceImplTest {
             eventArg.setPrice(dtoArg.getPrice());
             eventArg.setEventDate(dtoArg.getEventDate());
             return null;
-        }).when(modelMapper).map(eq(updateDTO), eq(testEvent));
+        }).when(modelMapper).map(updateDTO, testEvent);
 
         when(eventRepository.save(any(Event.class))).thenReturn(eventStateAfterSave);
 
-        when(modelMapper.map(eq(eventStateAfterSave), eq(EventResponseDTO.class))).thenReturn(expectedResponseDTO);
+        when(modelMapper.map(eventStateAfterSave, EventResponseDTO.class)).thenReturn(expectedResponseDTO);
 
         EventResponseDTO actualResponseDTO = eventService.updateEvent(eventId, updateDTO, organizer);
 
@@ -196,8 +198,8 @@ class EventServiceImplTest {
         assertEquals(expectedResponseDTO.getDescription(), actualResponseDTO.getDescription(), "Deskripsi Event pada response tidak cocok.");
         assertSame(expectedResponseDTO, actualResponseDTO, "Instance DTO yang dikembalikan seharusnya sama dengan yang dari stub.");
 
-        verify(eventRepository, times(1)).findById(eq(eventId));
-        verify(modelMapper, times(1)).map(eq(updateDTO), eq(testEvent));
+        verify(eventRepository, times(1)).findById(eventId);
+        verify(modelMapper, times(1)).map(updateDTO, testEvent);
         verify(eventRepository, times(1)).save(eventArgumentCaptor.capture());
 
         Event capturedEventForSave = eventArgumentCaptor.getValue();
@@ -206,8 +208,58 @@ class EventServiceImplTest {
         assertEquals(updateDTO.getDescription(), capturedEventForSave.getDescription(), "Deskripsi event yang di-save tidak terupdate.");
         assertSame(testEvent, capturedEventForSave, "Instance event yang di-save seharusnya adalah instance yang sama yang diambil dari findById dan dimodifikasi.");
 
+        verify(modelMapper, times(1)).map(eventStateAfterSave, EventResponseDTO.class);
+    }
 
-        verify(modelMapper, times(1)).map(eq(eventStateAfterSave), eq(EventResponseDTO.class));
+    // NEW: Test update event not found
+    @Test
+    void testUpdateEvent_NotFound() {
+        when(eventRepository.findById(eventId)).thenReturn(Optional.empty());
+
+        assertThrows(EventNotFoundException.class, () ->
+                eventService.updateEvent(eventId, updateDTO, organizer));
+        
+        verify(eventRepository).findById(eventId);
+        verify(eventRepository, never()).save(any());
+    }
+
+    // NEW: Test update event with past date
+    @Test
+    void testUpdateEvent_PastDate() {
+        Event pastEvent = new Event();
+        pastEvent.setId(eventId);
+        pastEvent.setEventDate(LocalDateTime.now().minusDays(1)); // Past date
+        pastEvent.setOrganizer(organizer);
+
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(pastEvent));
+
+        assertThrows(IllegalStateException.class, () ->
+                eventService.updateEvent(eventId, updateDTO, organizer));
+        
+        verify(eventRepository).findById(eventId);
+        verify(eventRepository, never()).save(any());
+    }
+
+    // NEW: Test update event within restricted hours before event
+    @Test
+    void testUpdateEvent_WithinRestrictedHours() {
+        // Assuming the restriction is 24 hours before event
+        Event soonEvent = new Event();
+        soonEvent.setId(eventId);
+        soonEvent.setEventDate(LocalDateTime.now().plusHours(2)); // 2 hours from now
+        soonEvent.setOrganizer(organizer);
+
+        EventUpdateDTO soonUpdateDTO = new EventUpdateDTO();
+        soonUpdateDTO.setTitle("Updated Title");
+        soonUpdateDTO.setEventDate(LocalDateTime.now().plusHours(2)); // Same date to trigger time check
+
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(soonEvent));
+
+        assertThrows(IllegalStateException.class, () ->
+                eventService.updateEvent(eventId, soonUpdateDTO, organizer));
+        
+        verify(eventRepository).findById(eventId);
+        verify(eventRepository, never()).save(any());
     }
     
     @Test
@@ -218,6 +270,35 @@ class EventServiceImplTest {
         String msg = eventService.cancelEvent(100L, organizer);
         assertTrue(testEvent.isCancelled());
         assertEquals("Event with ID 100 has been canceled successfully", msg);
+    }
+
+    // NEW: Test cancel event not found
+    @Test
+    void testCancelEvent_NotFound() {
+        when(eventRepository.findById(eventId)).thenReturn(Optional.empty());
+
+        assertThrows(EventNotFoundException.class, () ->
+                eventService.cancelEvent(eventId, organizer));
+        
+        verify(eventRepository).findById(eventId);
+        verify(eventRepository, never()).save(any());
+    }
+
+    // NEW: Test cancel past event
+    @Test
+    void testCancelEvent_PastEvent() {
+        Event pastEvent = new Event();
+        pastEvent.setId(eventId);
+        pastEvent.setEventDate(LocalDateTime.now().minusDays(1)); // Past date
+        pastEvent.setOrganizer(organizer);
+
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(pastEvent));
+
+        assertThrows(IllegalStateException.class, () ->
+                eventService.cancelEvent(eventId, organizer));
+        
+        verify(eventRepository).findById(eventId);
+        verify(eventRepository, never()).save(any());
     }
 
     @Test
@@ -231,12 +312,41 @@ class EventServiceImplTest {
         assertEquals("Event with ID 100 has been deleted successfully", msg);
     }
 
+    // NEW: Test delete event not found
+    @Test
+    void testDeleteEvent_NotFound() {
+        when(eventRepository.findById(eventId)).thenReturn(Optional.empty());
+
+        assertThrows(EventNotFoundException.class, () ->
+                eventService.deleteEvent(eventId, organizer));
+        
+        verify(eventRepository).findById(eventId);
+        verify(eventRepository, never()).save(any());
+    }
+
     @Test
     void testDeleteEvent_NotCancelledOrPast() {
         when(eventRepository.findById(100L)).thenReturn(Optional.of(testEvent));
 
         assertThrows(IllegalStateException.class, () ->
                 eventService.deleteEvent(100L, organizer));
+    }
+
+    // NEW: Test delete past event (should be allowed)
+    @Test
+    void testDeleteEvent_PastEvent_Success() {
+        Event pastEvent = new Event();
+        pastEvent.setId(eventId);
+        pastEvent.setEventDate(LocalDateTime.now().minusDays(1)); // Past date
+        pastEvent.setOrganizer(organizer);
+        pastEvent.setCancelled(false); // Not cancelled but past
+
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(pastEvent));
+        when(eventRepository.save(pastEvent)).thenReturn(pastEvent);
+
+        String msg = eventService.deleteEvent(eventId, organizer);
+        assertFalse(pastEvent.isActive());
+        assertEquals("Event with ID " + eventId + " has been deleted successfully", msg);
     }
 
     @Test
@@ -249,5 +359,96 @@ class EventServiceImplTest {
                 eventService.cancelEvent(100L, another));
 
         verify(eventRepository, never()).save(any());
+    }
+
+    // NEW: Test ownership violation for update
+    @Test
+    void testUpdateEvent_OwnershipViolation() {
+        User another = new User();
+        another.setId(999L);
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(testEvent));
+
+        assertThrows(UnauthorizedAccessException.class, () ->
+                eventService.updateEvent(eventId, updateDTO, another));
+
+        verify(eventRepository, never()).save(any());
+    }
+
+    // NEW: Test ownership violation for delete
+    @Test
+    void testDeleteEvent_OwnershipViolation() {
+        User another = new User();
+        another.setId(999L);
+        testEvent.setCancelled(true); // Make it eligible for deletion
+        when(eventRepository.findById(eventId)).thenReturn(Optional.of(testEvent));
+
+        assertThrows(UnauthorizedAccessException.class, () ->
+                eventService.deleteEvent(eventId, another));
+
+        verify(eventRepository, never()).save(any());
+    }
+
+    // NEW: Test getAllActiveEventsAsync success
+    @Test
+    void testGetAllActiveEventsAsync_Success() {
+        when(eventRepository.findByIsActiveTrue()).thenReturn(List.of(testEvent));
+        EventResponseDTO dto = new EventResponseDTO();
+        dto.setId(testEvent.getId());
+        when(modelMapper.map(testEvent, EventResponseDTO.class)).thenReturn(dto);
+
+        CompletableFuture<List<EventResponseDTO>> result = eventService.getAllActiveEventsAsync();
+
+        assertDoesNotThrow(() -> {
+            List<EventResponseDTO> events = result.get();
+            assertEquals(1, events.size());
+            assertEquals(100L, events.get(0).getId());
+        });
+        verify(eventRepository).findByIsActiveTrue();
+    }
+
+    // NEW: Test getAllActiveEventsAsync exception handling
+    @Test
+    void testGetAllActiveEventsAsync_ExceptionHandling() {
+        when(eventRepository.findByIsActiveTrue()).thenThrow(new RuntimeException("Database error"));
+
+        CompletableFuture<List<EventResponseDTO>> result = eventService.getAllActiveEventsAsync();
+
+        assertTrue(result.isCompletedExceptionally());
+        ExecutionException exception = assertThrows(ExecutionException.class, () -> result.get());
+        assertTrue(exception.getCause() instanceof RuntimeException);
+        assertEquals("Database error", exception.getCause().getMessage());
+    }
+
+    // NEW: Test getActiveEventsByOrganizerAsync success
+    @Test
+    void testGetActiveEventsByOrganizerAsync_Success() {
+        when(eventRepository.findByOrganizerAndIsActiveTrue(organizer))
+                .thenReturn(List.of(testEvent));
+        EventResponseDTO dto = new EventResponseDTO();
+        dto.setId(testEvent.getId());
+        when(modelMapper.map(testEvent, EventResponseDTO.class)).thenReturn(dto);
+
+        CompletableFuture<List<EventResponseDTO>> result = eventService.getActiveEventsByOrganizerAsync(organizer);
+
+        assertDoesNotThrow(() -> {
+            List<EventResponseDTO> events = result.get();
+            assertEquals(1, events.size());
+            assertEquals(100L, events.get(0).getId());
+        });
+        verify(eventRepository).findByOrganizerAndIsActiveTrue(organizer);
+    }
+
+    // NEW: Test getActiveEventsByOrganizerAsync exception handling
+    @Test
+    void testGetActiveEventsByOrganizerAsync_ExceptionHandling() {
+        when(eventRepository.findByOrganizerAndIsActiveTrue(organizer))
+                .thenThrow(new RuntimeException("Database error"));
+
+        CompletableFuture<List<EventResponseDTO>> result = eventService.getActiveEventsByOrganizerAsync(organizer);
+
+        assertTrue(result.isCompletedExceptionally());
+        ExecutionException exception = assertThrows(ExecutionException.class, () -> result.get());
+        assertTrue(exception.getCause() instanceof RuntimeException);
+        assertEquals("Database error", exception.getCause().getMessage());
     }
 }

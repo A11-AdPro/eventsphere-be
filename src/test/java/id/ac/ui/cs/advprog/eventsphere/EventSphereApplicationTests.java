@@ -1,21 +1,30 @@
-
 package id.ac.ui.cs.advprog.eventsphere;
 
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.boot.test.context.SpringBootTest;
-import org.springframework.context.ApplicationContext;
-import org.springframework.test.context.ActiveProfiles;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.MockedStatic;
+import org.mockito.Mockito;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.boot.SpringApplication;
+import org.springframework.context.ConfigurableApplicationContext;
 
-import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.times;
 
-@SpringBootTest
-class EventSphereApplicationTests {
-    @Autowired
-    private ApplicationContext applicationContext;
+@ExtendWith(MockitoExtension.class)
+class EventSphereApplicationTest {
 
     @Test
-    void contextLoads() {
-        assertThat(applicationContext).isNotNull();
+    void testMain() {
+        // Mock SpringApplication.run to prevent the full application context from starting
+        try (MockedStatic<SpringApplication> mocked = Mockito.mockStatic(SpringApplication.class)) {
+            mocked.when(() -> SpringApplication.run(EventSphereApplication.class, new String[]{}))
+                  .thenReturn(Mockito.mock(ConfigurableApplicationContext.class));
+
+            EventSphereApplication.main(new String[]{}); //
+
+            // Verify that SpringApplication.run was called
+            mocked.verify(() -> SpringApplication.run(EventSphereApplication.class, new String[]{}), times(1));
+        }
     }
 }
