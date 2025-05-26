@@ -15,6 +15,7 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportRepository;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.ReportResponseRepository;
 import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
 
@@ -49,6 +50,7 @@ public class ReportService {
         this.eventService = eventService;
     }
 
+    @Transactional
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
         String userEmail = createRequest.getUserEmail();
         if (userEmail == null || userEmail.isEmpty()) {
@@ -67,14 +69,13 @@ public class ReportService {
         report.setStatus(ReportStatus.PENDING);
 
         // Add notification service as observer
-        report.getObservers().add(notificationService);
+        // report.getObservers().add(notificationService);
 
         Report savedReport = reportRepository.save(report);
 
         // Process notifications asynchronously
         asyncNotificationService.processNewReportNotificationsAsync(savedReport);
 
-        // Optional: Legacy sync notification for critical systems (if needed)
         // notificationService.notifyNewReportSync(savedReport);
 
         if (savedReport.getEventId() != null) {
@@ -88,6 +89,7 @@ public class ReportService {
 
         return convertToResponseDTO(savedReport);
     }
+
 
     private void notifyEventOrganizer(Report report, Long organizerId) {
         try {
@@ -183,19 +185,14 @@ public class ReportService {
                 .collect(Collectors.toList());
     }
 
+    @Transactional
     public ReportResponseDTO updateReportStatus(UUID reportId, ReportStatus newStatus) {
         Report report = findReportById(reportId);
-
-        // Ensure notification service is added as observer
-        if (!report.getObservers().contains(notificationService)) {
-            report.getObservers().add(notificationService);
-        }
 
         // Store old status for async notification
         ReportStatus oldStatus = report.getStatus();
 
-        // Update status - this will trigger the observer pattern
-        report.updateStatus(newStatus);
+        report.setStatus(newStatus);
         report.setUpdatedAt(LocalDateTime.now());
 
         Report updatedReport = reportRepository.save(report);
@@ -224,7 +221,11 @@ public class ReportService {
                 report.getUserId().equals(commentRequest.getResponderId());
 
         // Add response to report - this will trigger the observer pattern
-        report.addResponse(commentEntity);
+        // report.addResponse(commentEntity);
+
+        report.getResponses().add(commentEntity);
+        commentEntity.setReport(report);
+
         report.setUpdatedAt(LocalDateTime.now());
 
         ReportResponse savedComment = responseRepository.save(commentEntity);
@@ -235,7 +236,9 @@ public class ReportService {
         // Auto-update status if needed
         if (report.getStatus() == ReportStatus.PENDING && !isReportOwner) {
             ReportStatus oldStatus = report.getStatus();
-            report.updateStatus(ReportStatus.ON_PROGRESS);
+
+            report.setStatus(ReportStatus.ON_PROGRESS);
+            report.setUpdatedAt(LocalDateTime.now());
 
             // Process status change asynchronously
             asyncNotificationService.processStatusChangeNotificationsAsync(report, oldStatus, ReportStatus.ON_PROGRESS);

@@ -47,8 +47,6 @@ public class NotificationService implements ReportObserver {
         asyncNotificationService.processNewReportNotificationsAsync(report);
     }
 
-    // SYNCHRONOUS METHODS - These methods remain synchronous for immediate operations
-
     // Synchronous fallback method for critical notifications (if needed)
     public void onStatusChangedSync(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
         String title = "Report Status Updated";

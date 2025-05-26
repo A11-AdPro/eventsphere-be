@@ -5,6 +5,8 @@ import id.ac.ui.cs.advprog.eventsphere.report.model.Report;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportResponse;
 import id.ac.ui.cs.advprog.eventsphere.report.model.ReportStatus;
 import id.ac.ui.cs.advprog.eventsphere.report.repository.NotificationRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Async;
 import org.springframework.stereotype.Service;
@@ -14,6 +16,8 @@ import java.util.concurrent.CompletableFuture;
 
 @Service
 public class AsyncNotificationService {
+
+    private static final Logger logger = LoggerFactory.getLogger(AsyncNotificationService.class);
 
     private final NotificationRepository notificationRepository;
     private final UserService userService;
@@ -25,32 +29,32 @@ public class AsyncNotificationService {
     }
 
     @Async("taskExecutor")
-    public void processNewReportNotificationsAsync(Report report) {
+    public CompletableFuture<String> processNewReportNotificationsAsync(Report report) {
         try {
             // Process admin notifications
             List<Long> adminIds = userService.getAdminIds();
             for (Long adminId : adminIds) {
-                createAndSaveNotification(adminId, report, "NEW_REPORT", "SYSTEM");
+                createAndSaveNotification(adminId, report);
             }
 
             // Process organizer notifications if event-related
             if (report.getEventId() != null) {
                 List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
                 for (Long organizerId : organizerIds) {
-                    createAndSaveNotification(organizerId, report, "NEW_REPORT", "SYSTEM");
+                    createAndSaveNotification(organizerId, report);
                 }
             }
 
-            System.out.println("Async notification processing completed for report: " + report.getId());
+            logger.info("Async notification processing completed for report: {}", report.getId());
+            return CompletableFuture.completedFuture("Successfully processed new report notifications for report: " + report.getId());
         } catch (Exception e) {
-            System.err.println("Error in async notification processing: " + e.getMessage());
+            logger.error("Error in async notification processing for report {}: {}", report.getId(), e.getMessage(), e);
+            return CompletableFuture.completedFuture("Error processing notifications for report: " + report.getId());
         }
-
-        CompletableFuture.completedFuture(null);
     }
 
     @Async("taskExecutor")
-    public void processStatusChangeNotificationsAsync(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
+    public CompletableFuture<String> processStatusChangeNotificationsAsync(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
         try {
             // Notify the report creator
             String title = "Report Status Updated";
@@ -58,10 +62,10 @@ public class AsyncNotificationService {
                     "Your report status has been updated from %s to %s.\n\n" +
                             "Category: %s\n" +
                             "Description: %s",
-                    oldStatus.getDisplayName(),
-                    newStatus.getDisplayName(),
-                    report.getCategory().getDisplayName(),
-                    report.getDescription()
+                    oldStatus != null ? oldStatus.getDisplayName() : "Unknown",
+                    newStatus != null ? newStatus.getDisplayName() : "Unknown",
+                    report.getCategory() != null ? report.getCategory().getDisplayName() : "No category",
+                    report.getDescription() != null ? report.getDescription() : "No description"
             );
 
             Notification notification = new Notification(
@@ -75,19 +79,19 @@ public class AsyncNotificationService {
             );
 
             notificationRepository.save(notification);
-            System.out.println("Async status change notification sent for report: " + report.getId());
+            logger.info("Async status change notification sent for report: {}", report.getId());
+            return CompletableFuture.completedFuture("Successfully sent status update notification for report: " + report.getId());
         } catch (Exception e) {
-            System.err.println("Error in async status change notification: " + e.getMessage());
+            logger.error("Error in async status change notification for report {}: {}", report.getId(), e.getMessage(), e);
+            return CompletableFuture.completedFuture("Error processing status change notification for report: " + report.getId());
         }
-
-        CompletableFuture.completedFuture(null);
     }
 
     @Async("taskExecutor")
-    public void processResponseNotificationsAsync(Report report, ReportResponse response) {
+    public CompletableFuture<String> processResponseNotificationsAsync(Report report, ReportResponse response) {
         try {
-            boolean isFromAttendee = report.getUserEmail().equals(response.getResponderEmail()) ||
-                    report.getUserId().equals(response.getResponderId());
+            boolean isFromAttendee = report.getUserEmail() != null && report.getUserEmail().equals(response.getResponderEmail()) ||
+                    report.getUserId() != null && report.getUserId().equals(response.getResponderId());
 
             if (isFromAttendee) {
                 // Notify admins and organizers
@@ -97,33 +101,42 @@ public class AsyncNotificationService {
                 notifyAttendeeAsync(report, response);
             }
 
-            System.out.println("Async response notification processing completed for report: " + report.getId());
+            logger.info("Async response notification processing completed for report: {}", report.getId());
+            return CompletableFuture.completedFuture("Successfully processed response notifications for report: " + report.getId());
         } catch (Exception e) {
-            System.err.println("Error in async response notification: " + e.getMessage());
+            logger.error("Error in async response notification for report {}: {}", report.getId(), e.getMessage(), e);
+            return CompletableFuture.completedFuture("Error processing response notifications for report: " + report.getId());
         }
-
-        CompletableFuture.completedFuture(null);
     }
 
-    private void createAndSaveNotification(Long recipientId, Report report, String type, String senderRole) {
+    private void createAndSaveNotification(Long recipientId, Report report) {
         try {
             String recipientEmail = userService.getUserEmail(recipientId);
-            String title = getNotificationTitle(type);
-            String message = buildNotificationMessage(report, type);
+            String title = "New Report Submitted";
+            String message = String.format(
+                    "A new event-related report has been submitted:\n\n" +
+                            "Event: %s\n" +
+                            "Category: %s\n" +
+                            "Description: %s",
+                    report.getEventTitle() != null ? report.getEventTitle() : "No event title",
+                    report.getCategory() != null ? report.getCategory().getDisplayName() : "No category",
+                    report.getDescription() != null ? report.getDescription() : "No description"
+            );
 
             Notification notification = new Notification(
                     recipientId,
                     recipientEmail,
-                    senderRole,
+                    "SYSTEM",
                     title,
                     message,
-                    type,
+                    "NEW_REPORT",
                     report.getId()
             );
 
             notificationRepository.save(notification);
+            logger.info("Notification created and saved for user: {}", recipientId);
         } catch (Exception e) {
-            System.err.println("Failed to create notification for user " + recipientId + ": " + e.getMessage());
+            logger.error("Failed to create notification for user {}: {}", recipientId, e.getMessage(), e);
         }
     }
 
@@ -131,106 +144,82 @@ public class AsyncNotificationService {
         // Notify admins
         List<Long> adminIds = userService.getAdminIds();
         for (Long adminId : adminIds) {
-            createResponseNotification(adminId, report, response, "NEW_RESPONSE");
+            createResponseNotification(adminId, report, response);
         }
 
         // Notify organizers if event-related
         if (report.getEventId() != null) {
             List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
             for (Long organizerId : organizerIds) {
-                createResponseNotification(organizerId, report, response, "NEW_RESPONSE");
+                createResponseNotification(organizerId, report, response);
             }
         }
     }
 
     private void notifyAttendeeAsync(Report report, ReportResponse response) {
-        String title = "Response to Your Report";
-        String message = String.format(
-                "A staff member has responded to your report:\n\n" +
-                        "From: %s\n" +
-                        "Message: %s\n\n" +
-                        "Category: %s\n" +
-                        "Status: %s",
-                response.getResponderRole(),
-                response.getMessage(),
-                report.getCategory().getDisplayName(),
-                report.getStatus().getDisplayName()
-        );
+        try {
+            String title = "Response to Your Report";
 
-        Notification notification = new Notification(
-                report.getUserId(),
-                report.getUserEmail(),
-                response.getResponderRole(),
-                title,
-                message,
-                "STAFF_RESPONSE",
-                report.getId()
-        );
+            // Fix the String.format issue - make sure we have the right number of parameters
+            String message = String.format(
+                    "A staff member has responded to your report:\n\n" +
+                            "From: %s\n" +
+                            "Message: %s\n\n" +
+                            "Category: %s\n" +
+                            "Status: %s",
+                    response.getResponderRole() != null ? response.getResponderRole() : "Staff",
+                    response.getMessage() != null ? response.getMessage() : "No message provided",
+                    report.getCategory() != null ? report.getCategory().getDisplayName() : "No category",
+                    report.getStatus() != null ? report.getStatus().getDisplayName() : "No status"
+            );
 
-        notificationRepository.save(notification);
+            Notification notification = new Notification(
+                    report.getUserId(),
+                    report.getUserEmail(),
+                    response.getResponderRole() != null ? response.getResponderRole() : "STAFF",
+                    title,
+                    message,
+                    "STAFF_RESPONSE",
+                    report.getId()
+            );
+
+            notificationRepository.save(notification);
+            logger.info("Attendee notification sent for report: {}", report.getId());
+        } catch (Exception e) {
+            logger.error("Failed to notify attendee for report {}: {}", report.getId(), e.getMessage(), e);
+        }
     }
 
-    private void createResponseNotification(Long recipientId, Report report, ReportResponse response, String type) {
+    private void createResponseNotification(Long recipientId, Report report, ReportResponse response) {
         try {
             String recipientEmail = userService.getUserEmail(recipientId);
             String title = "New Response to Report";
             String message = String.format(
-                    "There's a new response to report #%s:\n\n" +
+                    "There's a new response to report:\n\n" +
+                            "From: %s\n" +
                             "Message: %s\n\n" +
                             "Category: %s\n" +
                             "Status: %s",
-                    report.getId().toString().substring(0, 8),
-                    response.getMessage(),
-                    report.getCategory().getDisplayName(),
-                    report.getStatus().getDisplayName()
+                    response.getResponderRole() != null ? response.getResponderRole() : "User",
+                    response.getMessage() != null ? response.getMessage() : "No message provided",
+                    report.getCategory() != null ? report.getCategory().getDisplayName() : "No category",
+                    report.getStatus() != null ? report.getStatus().getDisplayName() : "No status"
             );
 
             Notification notification = new Notification(
                     recipientId,
                     recipientEmail,
-                    response.getResponderRole(),
+                    response.getResponderRole() != null ? response.getResponderRole() : "USER",
                     title,
                     message,
-                    type,
+                    "NEW_RESPONSE",
                     report.getId()
             );
 
             notificationRepository.save(notification);
+            logger.info("Response notification sent to user: {}", recipientId);
         } catch (Exception e) {
-            System.err.println("Failed to create response notification for user " + recipientId + ": " + e.getMessage());
+            logger.error("Failed to create response notification for user {}: {}", recipientId, e.getMessage(), e);
         }
-    }
-
-    private String getNotificationTitle(String type) {
-        switch (type) {
-            case "NEW_REPORT": return "New Report Submitted";
-            case "STATUS_UPDATE": return "Report Status Updated";
-            default: return "Notification";
-        }
-    }
-
-    private String buildNotificationMessage(Report report, String type) {
-        if ("NEW_REPORT".equals(type)) {
-            if (report.getEventId() != null && report.getEventTitle() != null) {
-                return String.format(
-                        "A new event-related report has been submitted:\n\n" +
-                                "Event: %s\n" +
-                                "Category: %s\n" +
-                                "Description: %s",
-                        report.getEventTitle(),
-                        report.getCategory().getDisplayName(),
-                        report.getDescription()
-                );
-            } else {
-                return String.format(
-                        "A new general report has been submitted:\n\n" +
-                                "Category: %s\n" +
-                                "Description: %s",
-                        report.getCategory().getDisplayName(),
-                        report.getDescription()
-                );
-            }
-        }
-        return "New notification";
     }
 }
