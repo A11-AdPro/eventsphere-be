@@ -98,6 +98,108 @@
 ![Image](https://github.com/user-attachments/assets/df84aa82-51a5-466a-a6c8-30ee69efa23b)
 ![Image](https://github.com/user-attachments/assets/f522a0d1-3a6f-4043-b0cd-c516844e0989)
 
+
+---
+
+## 🎫 Ticket System Architecture Overview
+
+### 🧩 Controller Layer
+
+* **TicketController.java**: Menangani seluruh endpoint API yang berkaitan dengan tiket, seperti:
+
+  * `addTicket`: Menambahkan tiket baru oleh organizer
+  * `updateTicket`: Mengubah informasi tiket oleh organizer
+  * `deleteTicket`: Menghapus tiket oleh admin
+  * `getAvailableTickets`: Untuk melihat semua tiket
+
+### 🧠 Service Layer
+
+* Mengimplementasikan logika bisnis dengan menerapkan pola desain interface-implementasi.
+* **TicketService.java**: Interface utama untuk mendefinisikan kontrak bisnis terkait tiket.
+* **TicketServiceImpl.java**:
+
+  * Memverifikasi peran pengguna sebelum memproses permintaan
+  * Mengelola transaksi tiket (create, update, delete, read)
+  * Menerapkan logika tambahan untuk validasi kuota, otorisasi, dan integrasi dengan entitas Event
+
+### 🗃 Repository Layer
+
+* **TicketRepository.java**:
+
+  * Mengakses dan memodifikasi data `Ticket` dalam database
+  * Turunan dari `JpaRepository` untuk operasi CRUD
+    
+* **TicketCategory**:
+
+  * Enum yang menggambarkan kategori tiket (REGULAR dan VIP)
+
+### 📦 DTO (Data Transfer Object) Layer
+
+* **TicketRequest.java**:
+
+  * Digunakan untuk menerima data dari client saat pembuatan atau pembaruan tiket.
+
+* **TicketResponse.java**:
+
+  * Digunakan untuk mengirimkan data tiket ke client.
+  * Menggunakan **Builder Pattern** untuk konstruksi objek yang fleksibel dan terstruktur.
+
+### ❗ Exception Layer
+
+* **TicketNotFoundException.java**:
+
+  * Dilempar saat tiket yang diminta tidak ditemukan dalam database.
+
+* **UnauthorizedAccessException.java**:
+
+  * Dilempar saat user mencoba melakukan operasi yang tidak diizinkan sesuai perannya.
+
+### 🧱 Model Layer
+
+* **Ticket.java**:
+
+  * Representasi entitas tiket dalam database.
+  * Memiliki relasi dengan entitas Event.
+
+* **TicketCategory.java**:
+
+  * Enum yang mendeskripsikan tipe/kategori dari tiket.
+  * Contoh: `REGULAR` dan `VIP`
+
+---
+
+## 🧰 Design Pattern: Builder Pattern
+
+Builder Pattern digunakan dalam `TicketResponse` untuk:
+
+* Membangun objek secara fleksibel ketika field-nya banyak
+* Memisahkan logika pemetaan dari entitas → DTO
+* Menjaga prinsip **Single Responsibility Principle (SRP)**
+* Meningkatkan **readability**, **testability**, dan **maintainability** kode
+
+---
+
+## ✅ Kemampuan Fitur
+
+* **Attendee**, **Organizer**, dan **Admin** dapat:
+
+  * Melihat semua tiket yang tersedia
+* **Organizer** dapat:
+
+  * Menambahkan tiket ke event-nya
+  * Mengubah informasi tiket
+* **Admin** dapat:
+
+  * Menghapus tiket yang bermasalah atau tidak valid
+
+### Component Ticket System
+[https://ristek.link/component-ticket-system](https://ristek.link/component-ticket-system)
+
+### Code Diagram Ticket System
+[https://ristek.link/code-diagram-ticket-system](https://ristek.link/code-diagram-ticket-system)
+
+---
+
 ## Payment and Balance Management Architecture Overview
 
 #### Controllers Layer
