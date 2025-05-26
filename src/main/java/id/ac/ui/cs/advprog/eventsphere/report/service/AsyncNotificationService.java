@@ -28,16 +28,18 @@ public class AsyncNotificationService {
         this.userService = userService;
     }
 
+    // Fungsi ini digunakan untuk memproses notifikasi laporan baru secara asinkron.
+    // Memberikan notifikasi ke admin dan organizer acara jika laporan terkait acara.
     @Async("taskExecutor")
     public CompletableFuture<String> processNewReportNotificationsAsync(Report report) {
         try {
-            // Process admin notifications
+            // Memproses pemberitahuan untuk admin
             List<Long> adminIds = userService.getAdminIds();
             for (Long adminId : adminIds) {
                 createAndSaveNotification(adminId, report);
             }
 
-            // Process organizer notifications if event-related
+            // Memproses pemberitahuan untuk organizer acara jika laporan terkait dengan acara
             if (report.getEventId() != null) {
                 List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
                 for (Long organizerId : organizerIds) {
@@ -53,10 +55,11 @@ public class AsyncNotificationService {
         }
     }
 
+    // Fungsi ini digunakan untuk memproses pemberitahuan perubahan status laporan secara asinkron.
     @Async("taskExecutor")
     public CompletableFuture<String> processStatusChangeNotificationsAsync(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
         try {
-            // Notify the report creator
+            // Memberi pemberitahuan kepada pembuat laporan mengenai perubahan status
             String title = "Report Status Updated";
             String message = String.format(
                     "Your report status has been updated from %s to %s.\n\n" +
@@ -87,6 +90,7 @@ public class AsyncNotificationService {
         }
     }
 
+    // Fungsi ini digunakan untuk memproses pemberitahuan tanggapan pada laporan secara asinkron.
     @Async("taskExecutor")
     public CompletableFuture<String> processResponseNotificationsAsync(Report report, ReportResponse response) {
         try {
@@ -94,10 +98,10 @@ public class AsyncNotificationService {
                     report.getUserId() != null && report.getUserId().equals(response.getResponderId());
 
             if (isFromAttendee) {
-                // Notify admins and organizers
+                // Pemberitahuan untuk staf dan organizer acara
                 notifyStaffAsync(report, response);
             } else {
-                // Notify attendee
+                // Pemberitahuan untuk peserta
                 notifyAttendeeAsync(report, response);
             }
 
@@ -105,10 +109,11 @@ public class AsyncNotificationService {
             return CompletableFuture.completedFuture("Successfully processed response notifications for report: " + report.getId());
         } catch (Exception e) {
             logger.error("Error in async response notification for report {}: {}", report.getId(), e.getMessage(), e);
-            return CompletableFuture.completedFuture("Error processing response notifications for report: " + report.getId());
+            return CompletableFuture.completedFuture("Error processing response  notificationsfor report: " + report.getId());
         }
     }
 
+    // Fungsi ini digunakan untuk membuat dan menyimpan notifikasi untuk penerima tertentu (admin atau organizer).
     private void createAndSaveNotification(Long recipientId, Report report) {
         try {
             String recipientEmail = userService.getUserEmail(recipientId);
@@ -140,14 +145,15 @@ public class AsyncNotificationService {
         }
     }
 
+    // Fungsi ini digunakan untuk memberi pemberitahuan kepada staf (admin dan organizer) terkait tanggapan pada laporan.
     private void notifyStaffAsync(Report report, ReportResponse response) {
-        // Notify admins
+        // Memberi pemberitahuan kepada admin
         List<Long> adminIds = userService.getAdminIds();
         for (Long adminId : adminIds) {
             createResponseNotification(adminId, report, response);
         }
 
-        // Notify organizers if event-related
+        // Memberi pemberitahuan kepada organizer acara jika laporan terkait acara
         if (report.getEventId() != null) {
             List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
             for (Long organizerId : organizerIds) {
@@ -156,11 +162,12 @@ public class AsyncNotificationService {
         }
     }
 
+    // Fungsi ini digunakan untuk memberi pemberitahuan kepada peserta terkait tanggapan pada laporan.
     private void notifyAttendeeAsync(Report report, ReportResponse response) {
         try {
             String title = "Response to Your Report";
 
-            // Fix the String.format issue - make sure we have the right number of parameters
+            // Format pesan untuk pemberitahuan
             String message = String.format(
                     "A staff member has responded to your report:\n\n" +
                             "From: %s\n" +
@@ -190,6 +197,7 @@ public class AsyncNotificationService {
         }
     }
 
+    // Fungsi ini digunakan untuk membuat pemberitahuan untuk tanggapan pada laporan yang dikirimkan kepada admin atau organizer.
     private void createResponseNotification(Long recipientId, Report report, ReportResponse response) {
         try {
             String recipientEmail = userService.getUserEmail(recipientId);

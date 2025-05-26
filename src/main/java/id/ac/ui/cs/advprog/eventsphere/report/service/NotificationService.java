@@ -29,25 +29,27 @@ public class NotificationService implements ReportObserver {
         this.asyncNotificationService = asyncNotificationService;
     }
 
-    // ASYNC METHODS - These methods now delegate to AsyncNotificationService
+    // Fungsi ini dipanggil ketika status laporan berubah.
+    // Fungsi ini memproses perubahan status laporan secara asinkron.
     @Override
     public void onStatusChanged(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
-        // Process asynchronously
         asyncNotificationService.processStatusChangeNotificationsAsync(report, oldStatus, newStatus);
     }
 
+    // Fungsi ini dipanggil ketika ada tanggapan yang ditambahkan pada laporan.
+    // Fungsi ini memproses notifikasi penambahan tanggapan secara asinkron.
     @Override
     public void onResponseAdded(Report report, ReportResponse response) {
-        // Process asynchronously
         asyncNotificationService.processResponseNotificationsAsync(report, response);
     }
 
+    // Fungsi ini memberi notifikasi terkait laporan baru yang diajukan secara asinkron.
     public void notifyNewReport(Report report) {
-        // Process asynchronously
         asyncNotificationService.processNewReportNotificationsAsync(report);
     }
 
-    // Synchronous fallback method for critical notifications (if needed)
+    // Fungsi ini adalah fallback untuk pemberitahuan status laporan secara sinkron.
+    // Pemberitahuan akan menginformasikan perubahan status laporan kepada pengguna.
     public void onStatusChangedSync(Report report, ReportStatus oldStatus, ReportStatus newStatus) {
         String title = "Report Status Updated";
         String message = String.format(
@@ -73,7 +75,8 @@ public class NotificationService implements ReportObserver {
         notificationRepository.save(notification);
     }
 
-    // Synchronous fallback method for critical notifications (if needed)
+    // Fungsi ini memberi notifikasi secara sinkron untuk setiap tanggapan yang diberikan pada laporan.
+    // Fungsi ini juga memeriksa jenis respon apakah berasal dari peserta atau staf dan mengirimkan notifikasi yang sesuai.
     public void onResponseAddedSync(Report report, ReportResponse response) {
         boolean isFromAttendee = report.getUserEmail().equals(response.getResponderEmail()) ||
                 report.getUserId().equals(response.getResponderId());
@@ -97,6 +100,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
+    // Fungsi ini memberi notifikasi kepada admin terkait tanggapan yang diberikan oleh peserta secara sinkron.
     private void notifyAdminsOfResponseSync(Report report, ReportResponse response) {
         List<Long> adminIds = userService.getAdminIds();
 
@@ -132,6 +136,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
+    // Fungsi ini memberi notifikasi kepada peserta mengenai tanggapan dari staf laporan yang bersangkutan secara sinkron.
     private void notifyAttendeeOfResponseSync(Report report, ReportResponse response) {
         String title = "Response to Your Report";
         String message = String.format(
@@ -160,7 +165,7 @@ public class NotificationService implements ReportObserver {
         notificationRepository.save(notification);
     }
 
-    // Synchronous fallback method for critical notifications (if needed)
+    // Fungsi ini memberi notifikasi secara sinkron terkait laporan baru yang diajukan.
     public void notifyNewReportSync(Report report) {
         notifyAdminsOfNewReportSync(report);
 
@@ -169,6 +174,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
+    // Fungsi ini memberi notifikasi kepada admin terkait laporan baru yang diajukan secara sinkron.
     private void notifyAdminsOfNewReportSync(Report report) {
         List<Long> adminIds = userService.getAdminIds();
 
@@ -217,6 +223,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
+    // Fungsi ini memberi notifikasi kepada penyelenggara acara terkait laporan baru yang diajukan terkait acara tersebut secara sinkron.
     private void notifyEventOrganizersOfNewReportSync(Report report) {
         List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
@@ -247,13 +254,13 @@ public class NotificationService implements ReportObserver {
                 );
 
                 notificationRepository.save(notification);
-
             } catch (Exception e) {
                 System.err.println("Failed to notify organizer " + organizerId + ": " + e.getMessage());
             }
         }
     }
 
+    // Fungsi ini memberi notifikasi kepada penyelenggara acara terkait tanggapan yang diberikan oleh peserta secara sinkron.
     private void notifyEventOrganizersOfResponseSync(Report report, ReportResponse response) {
         List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
@@ -286,13 +293,13 @@ public class NotificationService implements ReportObserver {
                 );
 
                 notificationRepository.save(notification);
-
             } catch (Exception e) {
                 System.err.println("Failed to notify organizer " + organizerId + " of response: " + e.getMessage());
             }
         }
     }
 
+    // Fungsi ini memberi notifikasi kepada penyelenggara acara terkait tanggapan admin terhadap laporan yang diajukan secara sinkron.
     private void notifyEventOrganizersOfAdminResponseSync(Report report, ReportResponse response) {
         List<Long> organizerIds = userService.getOrganizerIds(report.getEventId());
 
@@ -327,38 +334,43 @@ public class NotificationService implements ReportObserver {
                 );
 
                 notificationRepository.save(notification);
-
             } catch (Exception e) {
                 System.err.println("Failed to notify organizer " + organizerId + " of admin response: " + e.getMessage());
             }
         }
     }
 
-    // EXISTING SYNCHRONOUS METHODS - These remain unchanged for immediate read operations
+    // Fungsi untuk mendapatkan notifikasi berdasarkan ID pengguna
     public List<Notification> getUserNotifications(Long userId) {
         return notificationRepository.findByRecipientIdOrderByCreatedAtDesc(userId);
     }
 
+    // Fungsi untuk mendapatkan notifikasi berdasarkan email pengguna
     public List<Notification> getUserNotificationsByEmail(String email) {
         return notificationRepository.findByRecipientEmailOrderByCreatedAtDesc(email);
     }
 
+    // Fungsi untuk mendapatkan notifikasi yang belum dibaca berdasarkan ID pengguna
     public List<Notification> getUnreadUserNotifications(Long userId) {
         return notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
     }
 
+    // Fungsi untuk mendapatkan notifikasi yang belum dibaca berdasarkan email pengguna
     public List<Notification> getUnreadUserNotificationsByEmail(String email) {
         return notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
     }
 
+    // Fungsi untuk menghitung jumlah notifikasi yang belum dibaca berdasarkan ID pengguna
     public long countUnreadNotifications(Long userId) {
         return notificationRepository.countByRecipientIdAndRead(userId, false);
     }
 
+    // Fungsi untuk menghitung jumlah notifikasi yang belum dibaca berdasarkan email pengguna
     public long countUnreadNotificationsByEmail(String email) {
         return notificationRepository.countByRecipientEmailAndRead(email, false);
     }
 
+    // Fungsi untuk menandai notifikasi sebagai sudah dibaca berdasarkan ID notifikasi
     public Notification markNotificationAsRead(UUID notificationId) {
         Notification notification = notificationRepository.findById(notificationId)
                 .orElseThrow(() -> new EntityNotFoundException("Notification not found"));
@@ -367,6 +379,7 @@ public class NotificationService implements ReportObserver {
         return notificationRepository.save(notification);
     }
 
+    // Fungsi untuk menandai semua notifikasi sebagai sudah dibaca berdasarkan ID pengguna
     public void markAllNotificationsAsRead(Long userId) {
         List<Notification> unreadNotifications = notificationRepository.findByRecipientIdAndReadOrderByCreatedAtDesc(userId, false);
 
@@ -376,6 +389,7 @@ public class NotificationService implements ReportObserver {
         }
     }
 
+    // Fungsi untuk menandai semua notifikasi sebagai sudah dibaca berdasarkan email pengguna
     public void markAllNotificationsAsReadByEmail(String email) {
         List<Notification> unreadNotifications = notificationRepository.findByRecipientEmailAndReadOrderByCreatedAtDesc(email, false);
 

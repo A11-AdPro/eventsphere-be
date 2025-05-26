@@ -50,6 +50,8 @@ public class ReportService {
         this.eventService = eventService;
     }
 
+    // Fungsi ini digunakan untuk membuat laporan baru berdasarkan data yang diterima dan juga
+    // menangani pemberitahuan ke event organizer jika laporan terkait dengan acara tertentu.
     @Transactional
     public ReportResponseDTO createReport(CreateReportRequest createRequest) {
         String userEmail = createRequest.getUserEmail();
@@ -68,12 +70,10 @@ public class ReportService {
         report.setDescription(createRequest.getDescription());
         report.setStatus(ReportStatus.PENDING);
 
-        // Add notification service as observer
-        // report.getObservers().add(notificationService);
-
+        // Menyimpan laporan yang baru dibuat
         Report savedReport = reportRepository.save(report);
 
-        // Process notifications asynchronously
+        // Proses pemberitahuan secara asinkron untuk laporan baru
         asyncNotificationService.processNewReportNotificationsAsync(savedReport);
 
         // notificationService.notifyNewReportSync(savedReport);
@@ -90,27 +90,22 @@ public class ReportService {
         return convertToResponseDTO(savedReport);
     }
 
-
+    // Fungsi ini memberi pemberitahuan kepada organizer acara terkait laporan baru yang diajukan.
     private void notifyEventOrganizer(Report report, Long organizerId) {
         try {
-            String organizerEmail = userRepository.findById(organizerId)
-                    .map(User::getEmail)
-                    .orElse(null);
+            userRepository.findById(organizerId)
+                    .map(User::getEmail).ifPresent(organizerEmail -> System.out.println("Notifying organizer " + organizerEmail + " about new report for event " + report.getEventId()));
 
-            if (organizerEmail != null) {
-                // Create a simple notification for the organizer
-                // You can expand this based on your NotificationService implementation
-                System.out.println("Notifying organizer " + organizerEmail + " about new report for event " + report.getEventId());
-            }
         } catch (Exception e) {
             System.out.println("Could not notify organizer: " + e.getMessage());
         }
     }
 
+    // Fungsi ini memeriksa apakah laporan berasal dari organizer acara berdasarkan ID laporan dan ID organizer.
     public boolean isReportFromOrganizerEvent(UUID reportId, Long organizerId) {
         Report report = findReportById(reportId);
         if (report.getEventId() == null) {
-            return false; // General reports can't be accessed by organizers
+            return false; // Laporan umum tidak bisa diakses oleh organizer
         }
 
         try {
@@ -121,6 +116,7 @@ public class ReportService {
         }
     }
 
+    // Fungsi ini mendapatkan laporan berdasarkan ID acara dan status laporan oleh organizer acara.
     public List<ReportSummaryDTO> getReportsByOrganizerEventsAndStatus(Long organizerId, ReportStatus status) {
         List<EventResponseDTO> organizerEvents = eventService.getActiveEventsByOrganizer(
                 userRepository.findById(organizerId)
@@ -129,7 +125,7 @@ public class ReportService {
 
         List<Long> eventIds = organizerEvents.stream()
                 .map(EventResponseDTO::getId)
-                .collect(Collectors.toList());
+                .toList();
 
         List<Report> reports;
         if (status != null) {
@@ -147,6 +143,7 @@ public class ReportService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini mendapatkan laporan berdasarkan ID acara.
     public List<ReportSummaryDTO> getReportsByEventId(Long eventId) {
         List<Report> reports = reportRepository.findByEventId(eventId);
         return reports.stream()
@@ -154,11 +151,13 @@ public class ReportService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini mendapatkan laporan berdasarkan ID laporan.
     public ReportResponseDTO getReportById(UUID id) {
         Report report = findReportById(id);
         return convertToResponseDTO(report);
     }
 
+    // Fungsi ini mendapatkan laporan berdasarkan ID pengguna.
     public List<ReportSummaryDTO> getReportsByUserId(Long userId) {
         List<Report> reports = reportRepository.findByUserId(userId);
         return reports.stream()
@@ -166,6 +165,7 @@ public class ReportService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini mendapatkan laporan berdasarkan email pengguna.
     public List<ReportSummaryDTO> getReportsByUserEmail(String email) {
         List<Report> reports = reportRepository.findByUserEmail(email);
         return reports.stream()
@@ -173,6 +173,7 @@ public class ReportService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini mendapatkan laporan berdasarkan status laporan.
     public List<ReportSummaryDTO> getReportsByStatus(ReportStatus status) {
         List<Report> reports;
         if (status != null) {
@@ -185,11 +186,12 @@ public class ReportService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini digunakan untuk memperbarui status laporan dan mengirimkan pemberitahuan terkait perubahan status secara asinkron.
     @Transactional
     public ReportResponseDTO updateReportStatus(UUID reportId, ReportStatus newStatus) {
         Report report = findReportById(reportId);
 
-        // Store old status for async notification
+        // Menyimpan status lama untuk pemberitahuan asinkron
         ReportStatus oldStatus = report.getStatus();
 
         report.setStatus(newStatus);
@@ -197,16 +199,17 @@ public class ReportService {
 
         Report updatedReport = reportRepository.save(report);
 
-        // Process status change notifications asynchronously
+        // Proses pemberitahuan perubahan status laporan secara asinkron
         asyncNotificationService.processStatusChangeNotificationsAsync(updatedReport, oldStatus, newStatus);
 
         return convertToResponseDTO(updatedReport);
     }
 
+    // Fungsi ini menambahkan komentar pada laporan dan memproses pemberitahuan terkait komentar yang ditambahkan secara asinkron
     public ReportCommentDTO addComment(UUID reportId, CreateReportCommentRequest commentRequest) {
         Report report = findReportById(reportId);
 
-        // Ensure notification service is added as observer
+        // Memastikan Notifikasi Service menambahkan observer
         if (!report.getObservers().contains(notificationService)) {
             report.getObservers().add(notificationService);
         }
@@ -230,17 +233,15 @@ public class ReportService {
 
         ReportResponse savedComment = responseRepository.save(commentEntity);
 
-        // Process response notifications asynchronously
+        // Proses pemberitahuan tanggapan secara asinkron
         asyncNotificationService.processResponseNotificationsAsync(report, savedComment);
 
-        // Auto-update status if needed
         if (report.getStatus() == ReportStatus.PENDING && !isReportOwner) {
             ReportStatus oldStatus = report.getStatus();
 
             report.setStatus(ReportStatus.ON_PROGRESS);
             report.setUpdatedAt(LocalDateTime.now());
 
-            // Process status change asynchronously
             asyncNotificationService.processStatusChangeNotificationsAsync(report, oldStatus, ReportStatus.ON_PROGRESS);
         }
 
@@ -248,16 +249,19 @@ public class ReportService {
         return convertToCommentDTO(savedComment);
     }
 
+    // Fungsi ini menghapus laporan berdasarkan ID laporan.
     public void deleteReport(UUID reportId) {
         Report report = findReportById(reportId);
         reportRepository.delete(report);
     }
 
+    // Fungsi ini mencari laporan berdasarkan ID laporan dan melemparkan EntityNotFoundException jika tidak ditemukan.
     private Report findReportById(UUID id) {
         return reportRepository.findById(id)
                 .orElseThrow(() -> new EntityNotFoundException("Report not found with id: " + id));
     }
 
+    // Fungsi ini mengonversi objek Report menjadi ReportResponseDTO untuk dikirimkan
     private ReportResponseDTO convertToResponseDTO(Report report) {
         ReportResponseDTO dto = new ReportResponseDTO();
         dto.setId(report.getId());
@@ -281,6 +285,7 @@ public class ReportService {
         return dto;
     }
 
+    // Fungsi ini mengonversi objek Report menjadi Ringkasan Laporan (Summary DTO).
     private ReportSummaryDTO convertToSummaryDTO(Report report) {
         ReportSummaryDTO dto = new ReportSummaryDTO();
         dto.setId(report.getId());
@@ -305,6 +310,7 @@ public class ReportService {
         return dto;
     }
 
+    // Fungsi ini mengonversi objek ReportResponse menjadi ReportCommentDTO untuk dikirimkan.
     private ReportCommentDTO convertToCommentDTO(ReportResponse comment) {
         ReportCommentDTO dto = new ReportCommentDTO();
         dto.setId(comment.getId());
@@ -316,4 +322,5 @@ public class ReportService {
         dto.setCreatedAt(comment.getCreatedAt());
         return dto;
     }
+
 }

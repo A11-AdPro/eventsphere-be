@@ -585,4 +585,42 @@ public class NotificationServiceTest {
         assertTrue(notification.isRead());
         verify(notificationRepository).save(notification);
     }
+
+    @Test
+    @DisplayName("Menangani exception sinkron ketika memberi notifikasi ke admin tentang laporan baru")
+    public void testNotifyNewReportSync_AdminNotificationException() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
+        report.setId(UUID.randomUUID());
+
+        when(userService.getAdminIds()).thenReturn(Arrays.asList(2L, 3L));
+        when(userService.getUserEmail(2L)).thenThrow(new RuntimeException("Failed to get admin email"));
+        when(userService.getUserEmail(3L)).thenReturn("admin3@example.com");
+
+        // Act & Assert
+        assertDoesNotThrow(() -> notificationService.notifyNewReportSync(report));
+
+        // Assert
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
+    @Test
+    @DisplayName("Menangani exception sinkron ketika memberi notifikasi ke admin tentang respon attendee")
+    public void testOnResponseAddedSync_AdminNotificationException() {
+        // Arrange
+        Report report = new Report(1L, "user@example.com", ReportCategory.PAYMENT, "Issue");
+        report.setId(UUID.randomUUID());
+        ReportResponse response = new ReportResponse(1L, "user@example.com", "ATTENDEE", "Response", report);
+
+        when(userService.getAdminIds()).thenReturn(Arrays.asList(2L, 3L));
+        when(userService.getUserEmail(2L)).thenThrow(new RuntimeException("Failed to get admin email"));
+        when(userService.getUserEmail(3L)).thenReturn("admin3@example.com");
+
+        // Act & Assert
+        assertDoesNotThrow(() -> notificationService.onResponseAddedSync(report, response));
+
+        // Assert
+        verify(notificationRepository, times(1)).save(any(Notification.class));
+    }
+
 }

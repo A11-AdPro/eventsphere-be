@@ -25,12 +25,14 @@ public class UserService {
         this.eventService = eventService;
     }
 
+    // Fungsi ini digunakan untuk mengambil email pengguna berdasarkan ID pengguna.
     public String getUserEmail(Long userId) {
         return userRepository.findById(userId)
                 .map(User::getEmail)
                 .orElseThrow(() -> new EntityNotFoundException("User not found with ID: " + userId));
     }
 
+    // Fungsi ini digunakan untuk mendapatkan daftar email semua pengguna dengan peran ADMIN.
     public List<String> getAdminEmails() {
         return userRepository.findAll().stream()
                 .filter(user -> user.getRole() == Role.ADMIN)
@@ -38,9 +40,10 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini digunakan untuk mendapatkan email organizer berdasarkan ID acara yang aktif menggunakan eventService.
     public List<String> getOrganizerEmails(Long eventId) {
         try {
-            // Get the specific event to find its organizer
+            // Mendapatkan acara yang spesifik untuk mencari penyelenggara
             EventResponseDTO event = eventService.getActiveEventById(eventId);
             if (event != null && event.getOrganizerId() != null) {
                 return userRepository.findById(event.getOrganizerId())
@@ -53,6 +56,7 @@ public class UserService {
         return Collections.emptyList();
     }
 
+    // Fungsi ini digunakan untuk mendapatkan daftar ID semua pengguna dengan peran ADMIN.
     public List<Long> getAdminIds() {
         return userRepository.findAll().stream()
                 .filter(user -> user.getRole() == Role.ADMIN)
@@ -60,6 +64,7 @@ public class UserService {
                 .collect(Collectors.toList());
     }
 
+    // Fungsi ini digunakan untuk mendapatkan ID organizer acara berdasarkan ID acara yang aktif menggunakan eventService
     public List<Long> getOrganizerIds(Long eventId) {
         try {
             EventResponseDTO event = eventService.getActiveEventById(eventId);

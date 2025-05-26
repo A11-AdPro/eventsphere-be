@@ -5,7 +5,6 @@ import id.ac.ui.cs.advprog.eventsphere.authentication.service.AuthService;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.response.NotificationDTO;
 import id.ac.ui.cs.advprog.eventsphere.report.service.NotificationManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
