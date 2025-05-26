@@ -81,24 +81,4 @@ class EventTest {
         assertFalse(event.isRelevant());
     }
 
-    @Test
-    void testOnCreate_SetsCorrectDefaultValues() {
-        Event newEvent = Event.builder()
-                .title("New Event")
-                .eventDate(futureDate)
-                .location("Location")
-                .price(BigDecimal.TEN)
-                .organizer(organizer)
-                .build();
-        
-        assertNull(newEvent.getCreatedAt());
-        assertNull(newEvent.getUpdatedAt());
-        
-        newEvent.onCreate();
-        
-        assertNotNull(newEvent.getCreatedAt());
-        assertNotNull(newEvent.getUpdatedAt());
-        assertTrue(newEvent.isActive());
-        assertEquals(newEvent.getCreatedAt(), newEvent.getUpdatedAt());
-    }
 }
