@@ -1,5 +1,7 @@
 package id.ac.ui.cs.advprog.eventsphere.review.model;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import jakarta.persistence.*;
 import lombok.AllArgsConstructor;
@@ -15,6 +17,7 @@ import java.time.LocalDateTime;
 @NoArgsConstructor
 @AllArgsConstructor
 @Table(name = "review_reports")
+@JsonIgnoreProperties({"hibernateLazyInitializer", "handler"})
 public class ReviewReport {
 
     public enum ReportStatus {
@@ -34,14 +37,17 @@ public class ReviewReport {
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "review_id", nullable = false)
+    @JsonBackReference
     private Review review;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "reporter_id", nullable = false)
+    @JsonIgnoreProperties({"password", "balance", "createdAt", "updatedAt", "hibernateLazyInitializer", "handler"})
     private User reporter;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "admin_id")
+    @JsonIgnoreProperties({"password", "balance", "createdAt", "updatedAt", "hibernateLazyInitializer", "handler"})
     private User admin;
 
     private String adminNotes;
