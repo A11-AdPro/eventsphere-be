@@ -13,8 +13,10 @@ import id.ac.ui.cs.advprog.eventsphere.event.exception.EventNotFoundException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import java.util.List;
+import java.util.concurrent.CompletableFuture;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.scheduling.annotation.Async;
 
 @Slf4j
 @Service
@@ -104,6 +106,20 @@ public class TicketServiceImpl implements TicketService {
         repo.delete(ticket);
 
         return "Tiket dengan ID " + id + " berhasil dihapus.";
+    }
+
+    @Async
+    public CompletableFuture<String> deleteTicketAsync(Long id, User admin) {
+        if (!Role.ADMIN.equals(admin.getRole())) {
+            return CompletableFuture.failedFuture(new RuntimeException("Hanya admin yang dapat menghapus tiket."));
+        }
+
+        return CompletableFuture.supplyAsync(() -> {
+            Ticket ticket = repo.findById(id)
+                    .orElseThrow(TicketNotFoundException::new);
+            repo.delete(ticket);
+            return "Tiket dengan ID " + id + " berhasil dihapus.";
+        });
     }
 
     @Override
