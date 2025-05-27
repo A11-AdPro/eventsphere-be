@@ -4,7 +4,6 @@ import id.ac.ui.cs.advprog.eventsphere.authentication.model.Role;
 import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
 import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
-import id.ac.ui.cs.advprog.eventsphere.ticket.model.TicketCategory;
 import id.ac.ui.cs.advprog.eventsphere.ticket.service.TicketService;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TopUpResponseDTO;
 import id.ac.ui.cs.advprog.eventsphere.topup.dto.TransactionDTO;
@@ -17,21 +16,19 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
-import org.springframework.security.test.context.support.WithMockUser;
 
 import java.time.LocalDateTime;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.concurrent.CompletableFuture;
 
 import static org.junit.jupiter.api.Assertions.*;
-import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyLong;
-import static org.mockito.ArgumentMatchers.anyString;
+import static org.mockito.ArgumentMatchers.*;
 import static org.mockito.Mockito.*;
 
 @ExtendWith(MockitoExtension.class)
-public class TransactionServiceImplTest {
+class TransactionServiceImplTest {
 
     @Mock
     private UserRepository userRepository;
@@ -50,344 +47,486 @@ public class TransactionServiceImplTest {
 
     private User testUser;
     private User adminUser;
+    private User otherUser;
+    private TicketResponse testTicket;
     private Transaction testTransaction;
-    private TicketResponse testTicketResponse;
-    private LocalDateTime testTime;
+    private final String TEST_EMAIL = "test@example.com";
+    private final String ADMIN_EMAIL = "admin@example.com";
+    private final String OTHER_EMAIL = "other@example.com";
+    private final Long TICKET_ID = 1L;
+    private final Long USER_ID = 1L;
+    private final Long ADMIN_ID = 2L;
+    private final Long OTHER_USER_ID = 3L;
+    private final String TRANSACTION_ID = "trans-123";
 
     @BeforeEach
-    public void setup() {
-        testTime = LocalDateTime.now();
-        
+    void setUp() {
         testUser = User.builder()
-                .id(1L)
-                .email("user@example.com")
+                .id(USER_ID)
+                .email(TEST_EMAIL)
                 .fullName("Test User")
                 .role(Role.ATTENDEE)
-                .balance(500)
+                .balance(100000)
                 .build();
-                
+
         adminUser = User.builder()
-                .id(2L)
-                .email("admin@example.com")
+                .id(ADMIN_ID)
+                .email(ADMIN_EMAIL)
                 .fullName("Admin User")
                 .role(Role.ADMIN)
-                .balance(1000)
+                .balance(200000)
+                .build();
+
+        otherUser = User.builder()
+                .id(OTHER_USER_ID)
+                .email(OTHER_EMAIL)
+                .fullName("Other User")
+                .role(Role.ATTENDEE)
+                .balance(50000)
+                .build();
+
+        testTicket = new TicketResponse.Builder()
+                .id(TICKET_ID)
+                .name("Test Event Ticket")
+                .price(50000.0)
+                .quota(10)
+                .soldOut(false)
+                .eventId(1L)
                 .build();
 
         testTransaction = Transaction.builder()
-                .id("tx-123")
+                .id(TRANSACTION_ID)
                 .user(testUser)
-                .amount(200)
-                .timestamp(testTime)
+                .amount(50000)
+                .timestamp(LocalDateTime.now())
                 .type(Transaction.TransactionType.TICKET_PURCHASE)
                 .status(Transaction.TransactionStatus.SUCCESS)
-                .description("Test Purchase")
+                .description("Purchase ticket: Test Event Ticket")
                 .eventId("1")
                 .build();
-
-        testTicketResponse = new TicketResponse.Builder()
-                .id(1L)
-                .name("Test Ticket")
-                .price(200)
-                .quota(10)
-                .category(TicketCategory.VIP)
-                .eventId(1L)
-                .soldOut(false)
-                .build();
     }
 
     @Test
-    public void processTicketPurchaseById_SufficientBalance_ReturnsSuccessResponse() {
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("user@example.com");
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(testUser));
-        when(ticketService.getTicketById(1L)).thenReturn(testTicketResponse);
-        when(ticketService.purchaseTicket(1L)).thenReturn(testTicketResponse);
-        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
-            Transaction saved = invocation.getArgument(0);
-            saved.setId("tx-123");
-            return saved;
-        });
+    void processTicketPurchaseById_SuccessfulPurchase_ReturnsTopUpResponseDTO() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenReturn(testTicket);
+        when(ticketService.purchaseTicket(TICKET_ID)).thenReturn(testTicket);
+        when(userRepository.save(testUser)).thenReturn(testUser);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
 
-        TopUpResponseDTO response = transactionService.processTicketPurchaseById(1L);
+        TopUpResponseDTO result = transactionService.processTicketPurchaseById(TICKET_ID);
 
-        assertNotNull(response);
-        assertEquals("tx-123", response.getTransactionId());
-        assertEquals(1L, response.getUserId());
-        assertEquals(200, response.getAmount());
-        assertEquals(300, response.getNewBalance());
-        assertEquals("SUCCESS", response.getStatus());
-        
-        verify(userRepository, times(1)).save(testUser);
-        verify(ticketService, times(1)).getTicketById(1L);
-        verify(ticketService, times(1)).purchaseTicket(1L);
-        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        assertNotNull(result);
+        assertEquals(TRANSACTION_ID, result.getTransactionId());
+        assertEquals(USER_ID, result.getUserId());
+        assertEquals(50000, result.getAmount());
+        assertEquals(50000, result.getNewBalance()); 
+        assertEquals("SUCCESS", result.getStatus());
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(ticketService).getTicketById(TICKET_ID);
+        verify(ticketService).purchaseTicket(TICKET_ID);
+        verify(userRepository).save(testUser);
+        verify(transactionRepository).save(any(Transaction.class));
     }
 
     @Test
-    public void processTicketPurchaseById_InsufficientBalance_ThrowsException() {
-        TicketResponse expensiveTicket = new TicketResponse.Builder()
-                .id(1L)
-                .name("Expensive Ticket")
-                .price(600)
-                .quota(10)
-                .category(TicketCategory.VIP)
-                .eventId(1L)
-                .soldOut(false)
-                .build();
+    void processTicketPurchaseById_InvalidTicketId_ThrowsException() {
+        IllegalArgumentException exception = assertThrows(IllegalArgumentException.class, () ->
+                transactionService.processTicketPurchaseById(null));
+        assertEquals("Invalid ticket ID", exception.getMessage());
 
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("user@example.com");
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(testUser));
-        when(ticketService.getTicketById(1L)).thenReturn(expensiveTicket);
-        when(transactionRepository.save(any(Transaction.class))).thenAnswer(invocation -> {
-            Transaction saved = invocation.getArgument(0);
-            saved.setId("tx-123");
-            return saved;
-        });
+        exception = assertThrows(IllegalArgumentException.class, () ->
+                transactionService.processTicketPurchaseById(0L));
+        assertEquals("Invalid ticket ID", exception.getMessage());
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.processTicketPurchaseById(1L);
-        });
-        
-        assertEquals("Insufficient balance", exception.getMessage());
-        
-        verify(ticketService, times(1)).getTicketById(1L);
-        verify(ticketService, never()).purchaseTicket(anyLong());
-        verify(userRepository, never()).save(any(User.class));
-        verify(transactionRepository, times(1)).save(any(Transaction.class));
+        exception = assertThrows(IllegalArgumentException.class, () ->
+                transactionService.processTicketPurchaseById(-1L));
+        assertEquals("Invalid ticket ID", exception.getMessage());
     }
 
     @Test
-    public void processTicketPurchaseById_SoldOutTicket_ThrowsException() {
-        TicketResponse soldOutTicket = new TicketResponse.Builder()
-                .id(1L)
-                .name("Sold Out Ticket")
-                .price(200)
-                .quota(0)
-                .category(TicketCategory.VIP)
-                .eventId(1L)
-                .soldOut(true)
-                .build();
+    void processTicketPurchaseById_UserNotFound_ThrowsException() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.empty());
 
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("user@example.com");
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(testUser));
-        when(ticketService.getTicketById(1L)).thenReturn(soldOutTicket);
-
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.processTicketPurchaseById(1L);
-        });
-        
-        assertEquals("Ticket is sold out", exception.getMessage());
-        
-        verify(ticketService, times(1)).getTicketById(1L);
-        verify(ticketService, never()).purchaseTicket(anyLong());
-        verify(userRepository, never()).save(any(User.class));
-        verify(transactionRepository, never()).save(any(Transaction.class));
-    }
-
-    @Test
-    public void processTicketPurchaseById_UserNotFound_ThrowsException() {
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("nonexistent@example.com");
-        when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
-
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.processTicketPurchaseById(1L);
-        });
-        
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.processTicketPurchaseById(TICKET_ID));
         assertEquals("User not found", exception.getMessage());
-        verify(ticketService, never()).getTicketById(anyLong());
-        verify(ticketService, never()).purchaseTicket(anyLong());
-        verify(transactionRepository, never()).save(any(Transaction.class));
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verifyNoInteractions(ticketService);
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void getAllTransactions_ReturnsAllTransactionsMappedToDTO() {
-        List<Transaction> transactions = Arrays.asList(
-                testTransaction,
-                Transaction.builder()
-                        .id("tx-456")
-                        .user(adminUser)
-                        .amount(100)
-                        .timestamp(testTime)
-                        .type(Transaction.TransactionType.TOP_UP)
-                        .status(Transaction.TransactionStatus.SUCCESS)
-                        .build()
-        );
-        
+    void processTicketPurchaseById_TicketNotFound_ThrowsException() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenThrow(new RuntimeException("Ticket not found"));
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.processTicketPurchaseById(TICKET_ID));
+        assertTrue(exception.getMessage().contains("Ticket not found"));
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(ticketService).getTicketById(TICKET_ID);
+        verify(transactionRepository).save(any(Transaction.class)); 
+        verifyNoMoreInteractions(ticketService);
+    }
+
+    @Test
+    void processTicketPurchaseById_SoldOutTicket_ThrowsException() {
+        TicketResponse soldOutTicket = new TicketResponse.Builder()
+                .id(TICKET_ID)
+                .name("Sold Out Ticket")
+                .price(50000.0)
+                .quota(0)
+                .soldOut(true)
+                .eventId(1L)
+                .build();
+
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenReturn(soldOutTicket);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.processTicketPurchaseById(TICKET_ID));
+        assertEquals("Ticket is sold out", exception.getMessage());
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(ticketService).getTicketById(TICKET_ID);
+        verify(transactionRepository).save(any(Transaction.class)); 
+        verify(ticketService, never()).purchaseTicket(any()); 
+    }
+
+    @Test
+    void processTicketPurchaseById_InsufficientBalance_ThrowsException() {
+        testUser.setBalance(10000); 
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenReturn(testTicket);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.processTicketPurchaseById(TICKET_ID));
+        assertTrue(exception.getMessage().contains("Insufficient balance"));
+        assertTrue(exception.getMessage().contains("Required: 50000"));
+        assertTrue(exception.getMessage().contains("Available: 10000"));
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(ticketService).getTicketById(TICKET_ID);
+        verify(transactionRepository).save(any(Transaction.class));
+        verify(ticketService, never()).purchaseTicket(any()); 
+    }
+
+    @Test
+    void processTicketPurchaseById_PurchaseTicketFails_ThrowsException() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenReturn(testTicket);
+        when(ticketService.purchaseTicket(TICKET_ID)).thenThrow(new RuntimeException("Purchase failed"));
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.processTicketPurchaseById(TICKET_ID));
+        assertTrue(exception.getMessage().contains("Failed to purchase ticket"));
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(ticketService).getTicketById(TICKET_ID);
+        verify(ticketService).purchaseTicket(TICKET_ID);
+        verify(transactionRepository).save(any(Transaction.class)); 
+        verify(userRepository, never()).save(testUser); 
+    }
+
+    @Test
+    void processTicketPurchaseById_UnexpectedErrorDuringProcessing_ThrowsException() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenReturn(testTicket);
+        when(ticketService.purchaseTicket(TICKET_ID)).thenReturn(testTicket);
+        when(userRepository.save(testUser)).thenThrow(new RuntimeException("Database error"));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.processTicketPurchaseById(TICKET_ID));
+        assertEquals("Database error", exception.getMessage());
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(ticketService).getTicketById(TICKET_ID);
+        verify(ticketService).purchaseTicket(TICKET_ID);
+        verify(userRepository).save(testUser);
+    }
+
+    @Test
+    void processTicketPurchaseByIdAsync_SuccessfulPurchase_ReturnsCompletableFuture() throws Exception {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(ticketService.getTicketById(TICKET_ID)).thenReturn(testTicket);
+        when(ticketService.purchaseTicket(TICKET_ID)).thenReturn(testTicket);
+        when(userRepository.save(testUser)).thenReturn(testUser);
+        when(transactionRepository.save(any(Transaction.class))).thenReturn(testTransaction);
+
+        CompletableFuture<TopUpResponseDTO> result = transactionService.processTicketPurchaseByIdAsync(TICKET_ID);
+
+        assertNotNull(result);
+        TopUpResponseDTO response = result.get();
+        assertNotNull(response);
+        assertEquals(TRANSACTION_ID, response.getTransactionId());
+    }
+
+    @Test
+    void processTicketPurchaseByIdAsync_PurchaseFails_ReturnsFailedFuture() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.empty());
+
+        CompletableFuture<TopUpResponseDTO> result = transactionService.processTicketPurchaseByIdAsync(TICKET_ID);
+
+        assertNotNull(result);
+        assertTrue(result.isCompletedExceptionally());
+    }
+
+    @Test
+    void getAllTransactions_ReturnsAllTransactions() {
+        List<Transaction> transactions = Arrays.asList(testTransaction);
         when(transactionRepository.findAll()).thenReturn(transactions);
 
         List<TransactionDTO> result = transactionService.getAllTransactions();
 
-        assertEquals(2, result.size());
-        assertEquals("tx-123", result.get(0).getId());
-        assertEquals("tx-456", result.get(1).getId());
-        assertEquals(1L, result.get(0).getUserId());
-        assertEquals(2L, result.get(1).getUserId());
-        assertEquals("Test User", result.get(0).getUsername());
-        assertEquals("Admin User", result.get(1).getUsername());
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        TransactionDTO dto = result.get(0);
+        assertEquals(TRANSACTION_ID, dto.getId());
+        assertEquals(USER_ID, dto.getUserId());
+        assertEquals("Test User", dto.getUsername());
+        assertEquals(50000, dto.getAmount());
+        assertEquals("TICKET_PURCHASE", dto.getType());
+        assertEquals("SUCCESS", dto.getStatus());
+
+        verify(transactionRepository).findAll();
     }
 
     @Test
-    public void getCurrentUserTransactions_UserFound_ReturnsUserTransactions() {
-        List<Transaction> userTransactions = Arrays.asList(
-                testTransaction,
-                Transaction.builder()
-                        .id("tx-789")
-                        .user(testUser)
-                        .amount(50)
-                        .timestamp(testTime)
-                        .type(Transaction.TransactionType.TOP_UP)
-                        .status(Transaction.TransactionStatus.SUCCESS)
-                        .build()
-        );
-        
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("user@example.com");
-        when(userRepository.findByEmail("user@example.com")).thenReturn(Optional.of(testUser));
-        when(transactionRepository.findByUser(testUser)).thenReturn(userTransactions);
+    void getCurrentUserTransactions_ReturnsUserTransactions() {
+        List<Transaction> transactions = Arrays.asList(testTransaction);
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
+        when(transactionRepository.findByUser(testUser)).thenReturn(transactions);
 
         List<TransactionDTO> result = transactionService.getCurrentUserTransactions();
 
-        assertEquals(2, result.size());
-        assertEquals("tx-123", result.get(0).getId());
-        assertEquals("tx-789", result.get(1).getId());
-        assertEquals(1L, result.get(0).getUserId());
-        assertEquals(1L, result.get(1).getUserId());
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(TRANSACTION_ID, result.get(0).getId());
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verify(transactionRepository).findByUser(testUser);
     }
 
     @Test
-    public void getCurrentUserTransactions_UserNotFound_ThrowsException() {
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("nonexistent@example.com");
-        when(userRepository.findByEmail("nonexistent@example.com")).thenReturn(Optional.empty());
+    void getCurrentUserTransactions_UserNotFound_ThrowsException() {
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.getCurrentUserTransactions();
-        });
-        
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.getCurrentUserTransactions());
         assertEquals("User not found", exception.getMessage());
+
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+        verifyNoInteractions(transactionRepository);
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void getUserTransactions_UserFound_ReturnsUserTransactions() {
-        List<Transaction> userTransactions = Arrays.asList(
-                testTransaction,
-                Transaction.builder()
-                        .id("tx-789")
-                        .user(testUser)
-                        .amount(50)
-                        .timestamp(testTime)
-                        .type(Transaction.TransactionType.TOP_UP)
-                        .status(Transaction.TransactionStatus.SUCCESS)
-                        .build()
-        );
-        
-        when(userRepository.findById(1L)).thenReturn(Optional.of(testUser));
-        when(transactionRepository.findByUser(testUser)).thenReturn(userTransactions);
+    void getUserTransactions_ValidUserId_ReturnsUserTransactions() {
+        List<Transaction> transactions = Arrays.asList(testTransaction);
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.of(testUser));
+        when(transactionRepository.findByUser(testUser)).thenReturn(transactions);
 
-        List<TransactionDTO> result = transactionService.getUserTransactions(1L);
+        List<TransactionDTO> result = transactionService.getUserTransactions(USER_ID);
 
-        assertEquals(2, result.size());
-        assertEquals("tx-123", result.get(0).getId());
-        assertEquals("tx-789", result.get(1).getId());
+        assertNotNull(result);
+        assertEquals(1, result.size());
+        assertEquals(TRANSACTION_ID, result.get(0).getId());
+
+        verify(userRepository).findById(USER_ID);
+        verify(transactionRepository).findByUser(testUser);
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void getUserTransactions_UserNotFound_ThrowsException() {
-        when(userRepository.findById(999L)).thenReturn(Optional.empty());
+    void getUserTransactions_UserNotFound_ThrowsException() {
+        when(userRepository.findById(USER_ID)).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.getUserTransactions(999L);
-        });
-        
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.getUserTransactions(USER_ID));
         assertEquals("User not found", exception.getMessage());
+
+        verify(userRepository).findById(USER_ID);
+        verifyNoInteractions(transactionRepository);
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void deleteTransaction_TransactionExists_ReturnsTrue() {
-        when(transactionRepository.existsById("tx-123")).thenReturn(true);
-        doNothing().when(transactionRepository).deleteById("tx-123");
+    void deleteTransaction_TransactionExists_ReturnsTrue() {
+        when(transactionRepository.existsById(TRANSACTION_ID)).thenReturn(true);
 
-        boolean result = transactionService.deleteTransaction("tx-123");
+        boolean result = transactionService.deleteTransaction(TRANSACTION_ID);
 
         assertTrue(result);
-        verify(transactionRepository).deleteById("tx-123");
+        verify(transactionRepository).existsById(TRANSACTION_ID);
+        verify(transactionRepository).deleteById(TRANSACTION_ID);
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void deleteTransaction_TransactionDoesNotExist_ReturnsFalse() {
-        when(transactionRepository.existsById("nonexistent")).thenReturn(false);
+    void deleteTransaction_TransactionNotExists_ReturnsFalse() {
+        when(transactionRepository.existsById(TRANSACTION_ID)).thenReturn(false);
 
-        boolean result = transactionService.deleteTransaction("nonexistent");
+        boolean result = transactionService.deleteTransaction(TRANSACTION_ID);
 
         assertFalse(result);
-        verify(transactionRepository, never()).deleteById(anyString());
+        verify(transactionRepository).existsById(TRANSACTION_ID);
+        verify(transactionRepository, never()).deleteById(any());
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void markTransactionAsFailed_TransactionExists_UpdatesStatusAndReturnsTrue() {
-        when(transactionRepository.findById("tx-123")).thenReturn(Optional.of(testTransaction));
+    void markTransactionAsFailed_TransactionExists_ReturnsTrue() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.of(testTransaction));
         when(transactionRepository.save(testTransaction)).thenReturn(testTransaction);
 
-        boolean result = transactionService.markTransactionAsFailed("tx-123");
+        boolean result = transactionService.markTransactionAsFailed(TRANSACTION_ID);
 
         assertTrue(result);
         assertEquals(Transaction.TransactionStatus.FAILED, testTransaction.getStatus());
+        verify(transactionRepository).findById(TRANSACTION_ID);
         verify(transactionRepository).save(testTransaction);
     }
 
     @Test
-    @WithMockUser(roles = "ADMIN")
-    public void markTransactionAsFailed_TransactionDoesNotExist_ReturnsFalse() {
-        when(transactionRepository.findById("nonexistent")).thenReturn(Optional.empty());
+    void markTransactionAsFailed_TransactionNotExists_ReturnsFalse() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.empty());
 
-        boolean result = transactionService.markTransactionAsFailed("nonexistent");
+        boolean result = transactionService.markTransactionAsFailed(TRANSACTION_ID);
 
         assertFalse(result);
-        verify(transactionRepository, never()).save(any(Transaction.class));
+        verify(transactionRepository).findById(TRANSACTION_ID);
+        verify(transactionRepository, never()).save(any());
     }
 
     @Test
-    public void getTransactionById_TransactionExistsAndUserIsOwner_ReturnsTransactionDTO() {
-        when(transactionRepository.findById("tx-123")).thenReturn(Optional.of(testTransaction));
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("user@example.com");
+    void getTransactionById_TransactionExistsAndUserIsOwner_ReturnsTransactionDTO() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.of(testTransaction));
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.of(testUser));
 
-        TransactionDTO result = transactionService.getTransactionById("tx-123");
+        TransactionDTO result = transactionService.getTransactionById(TRANSACTION_ID);
 
         assertNotNull(result);
-        assertEquals("tx-123", result.getId());
-        assertEquals(1L, result.getUserId());
+        assertEquals(TRANSACTION_ID, result.getId());
+        assertEquals(USER_ID, result.getUserId());
         assertEquals("Test User", result.getUsername());
-        assertEquals(200, result.getAmount());
-        assertEquals("TICKET_PURCHASE", result.getType());
-        assertEquals("SUCCESS", result.getStatus());
-        assertEquals("Test Purchase", result.getDescription());
-        assertEquals("1", result.getEventId());
+
+        verify(transactionRepository).findById(TRANSACTION_ID);
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
     }
 
     @Test
-    public void getTransactionById_TransactionExistsButUserIsNotOwner_ThrowsException() {
-        when(transactionRepository.findById("tx-123")).thenReturn(Optional.of(testTransaction));
-        when(currentUserUtil.getCurrentUserEmail()).thenReturn("other@example.com");
+    void getTransactionById_TransactionExistsAndUserIsAdmin_ReturnsTransactionDTO() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.of(testTransaction));
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(ADMIN_EMAIL);
+        when(userRepository.findByEmail(ADMIN_EMAIL)).thenReturn(Optional.of(adminUser));
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.getTransactionById("tx-123");
-        });
-        
+        TransactionDTO result = transactionService.getTransactionById(TRANSACTION_ID);
+
+        assertNotNull(result);
+        assertEquals(TRANSACTION_ID, result.getId());
+
+        verify(transactionRepository).findById(TRANSACTION_ID);
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(ADMIN_EMAIL);
+    }
+
+    @Test
+    void getTransactionById_TransactionExistsButUserIsNotOwner_ThrowsException() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.of(testTransaction));
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(OTHER_EMAIL);
+        when(userRepository.findByEmail(OTHER_EMAIL)).thenReturn(Optional.of(otherUser));
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.getTransactionById(TRANSACTION_ID));
         assertEquals("Access denied: You can only view your own transactions", exception.getMessage());
+
+        verify(transactionRepository).findById(TRANSACTION_ID);
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(OTHER_EMAIL);
     }
 
     @Test
-    public void getTransactionById_TransactionDoesNotExist_ThrowsException() {
-        when(transactionRepository.findById("nonexistent")).thenReturn(Optional.empty());
+    void getTransactionById_TransactionNotExists_ThrowsException() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.empty());
 
-        Exception exception = assertThrows(RuntimeException.class, () -> {
-            transactionService.getTransactionById("nonexistent");
-        });
-        
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.getTransactionById(TRANSACTION_ID));
         assertEquals("Transaction not found", exception.getMessage());
+
+        verify(transactionRepository).findById(TRANSACTION_ID);
+        verifyNoInteractions(currentUserUtil);
+        verifyNoInteractions(userRepository);
+    }
+
+    @Test
+    void getTransactionById_CurrentUserNotFound_ThrowsException() {
+        when(transactionRepository.findById(TRANSACTION_ID)).thenReturn(Optional.of(testTransaction));
+        when(currentUserUtil.getCurrentUserEmail()).thenReturn(TEST_EMAIL);
+        when(userRepository.findByEmail(TEST_EMAIL)).thenReturn(Optional.empty());
+
+        RuntimeException exception = assertThrows(RuntimeException.class, () ->
+                transactionService.getTransactionById(TRANSACTION_ID));
+        assertEquals("Current user not found", exception.getMessage());
+
+        verify(transactionRepository).findById(TRANSACTION_ID);
+        verify(currentUserUtil).getCurrentUserEmail();
+        verify(userRepository).findByEmail(TEST_EMAIL);
+    }
+
+    @Test
+    void mapTransactionsToDTO_EmptyList_ReturnsEmptyList() {
+        when(transactionRepository.findAll()).thenReturn(Arrays.asList());
+
+        List<TransactionDTO> result = transactionService.getAllTransactions();
+
+        assertNotNull(result);
+        assertTrue(result.isEmpty());
+    }
+
+    @Test
+    void mapTransactionsToDTO_MultipleTransactions_ReturnsMultipleDTOs() {
+        Transaction transaction2 = Transaction.builder()
+                .id("trans-456")
+                .user(testUser)
+                .amount(25000)
+                .timestamp(LocalDateTime.now())
+                .type(Transaction.TransactionType.TOP_UP)
+                .status(Transaction.TransactionStatus.SUCCESS)
+                .description("Top-up")
+                .build();
+
+        List<Transaction> transactions = Arrays.asList(testTransaction, transaction2);
+        when(transactionRepository.findAll()).thenReturn(transactions);
+
+        List<TransactionDTO> result = transactionService.getAllTransactions();
+
+        assertNotNull(result);
+        assertEquals(2, result.size());
+        assertEquals(TRANSACTION_ID, result.get(0).getId());
+        assertEquals("trans-456", result.get(1).getId());
     }
 }

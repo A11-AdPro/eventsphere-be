@@ -82,7 +82,7 @@ public class AuthServiceImplTest {
     @Test
     void loginShouldReturnJwtResponseWhenCredentialsAreValid() {
         // Arrange
-        SecurityContextHolder.setContext(securityContext);  // Set the mocked security context
+        SecurityContextHolder.setContext(securityContext);
         
         when(authenticationManager.authenticate(any(UsernamePasswordAuthenticationToken.class)))
                 .thenReturn(authentication);
@@ -100,7 +100,7 @@ public class AuthServiceImplTest {
 
         verify(authenticationManager).authenticate(any(UsernamePasswordAuthenticationToken.class));
         verify(jwtTokenProvider).generateToken(authentication);
-        verify(securityContext).setAuthentication(authentication);  // Verify on the mock
+        verify(securityContext).setAuthentication(authentication);
         
         // Clean up
         SecurityContextHolder.clearContext();

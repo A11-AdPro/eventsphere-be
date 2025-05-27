@@ -3,89 +3,81 @@ package id.ac.ui.cs.advprog.eventsphere.ticket.controller;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketRequest;
 import id.ac.ui.cs.advprog.eventsphere.ticket.dto.TicketResponse;
 import id.ac.ui.cs.advprog.eventsphere.ticket.service.TicketService;
+import id.ac.ui.cs.advprog.eventsphere.authentication.model.User;
+import id.ac.ui.cs.advprog.eventsphere.authentication.repository.UserRepository;
+import id.ac.ui.cs.advprog.eventsphere.ticket.exception.UnauthorizedAccessException;
+import jakarta.validation.Valid;
+import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.security.core.Authentication;
+import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UserDetails;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("/api/tickets")
+@RequiredArgsConstructor
 public class TicketController {
 
-    private final TicketService service;
+    private final TicketService ticketService;
+    private final UserRepository userRepository;
 
-    public TicketController(TicketService service) {
-        this.service = service;
+    private User getAuthenticatedUser() {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = ((UserDetails) auth.getPrincipal()).getUsername();
+        return userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
     }
 
-    @PreAuthorize("hasRole('ROLE_ATTENDEE') or hasRole('ROLE_ORGANIZER') or hasRole('ROLE_ADMIN')")
-    @GetMapping("/{id}")
-    public ResponseEntity<TicketResponse> getTicketById(@PathVariable Long id) {
-        try {
-            TicketResponse response = service.getTicketById(id);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
-    }
-
-    @PreAuthorize("hasRole('ROLE_ORGANIZER')")
     @PostMapping
-    public ResponseEntity<TicketResponse> create(@RequestBody TicketRequest request) {
-        try {
-            TicketResponse response = service.addTicket(request).join();  // blocking tunggu hasil
-            return ResponseEntity.status(HttpStatus.CREATED).body(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
+    @PreAuthorize("hasRole('ORGANIZER')")
+    public ResponseEntity<TicketResponse> createTicket(@Valid @RequestBody TicketRequest request) {
+        User organizer = getAuthenticatedUser();
+        TicketResponse response = ticketService.addTicket(request, organizer);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-
-    @PreAuthorize("hasRole('ROLE_ORGANIZER')")
     @PutMapping("/{id}")
-    public ResponseEntity<TicketResponse> update(@PathVariable Long id, @RequestBody TicketRequest request) {
-        try {
-            TicketResponse response = service.updateTicket(id, request).join();  // tunggu hasilnya
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+    @PreAuthorize("hasRole('ORGANIZER')")
+    public ResponseEntity<TicketResponse> updateTicket(
+            @PathVariable Long id,
+            @Valid @RequestBody TicketRequest request) {
+        User organizer = getAuthenticatedUser();
+        System.out.println("Updating ticket by user with role: " + organizer.getRole());
+        TicketResponse response = ticketService.updateTicket(id, request, organizer);
+        return ResponseEntity.ok(response);
     }
 
-
-    @PreAuthorize("hasRole('ROLE_ATTENDEE') or hasRole('ROLE_ORGANIZER') or hasRole('ROLE_ADMIN')")
     @GetMapping
-    public ResponseEntity<List<TicketResponse>> list() {
-        List<TicketResponse> tickets = service.getAvailableTickets().join();  // <-- pakai join() biar blocking
+    @PreAuthorize("hasRole('ROLE_ATTENDEE') or hasRole('ROLE_ORGANIZER') or hasRole('ROLE_ADMIN')")
+    public ResponseEntity<List<TicketResponse>> listAvailableTickets() {
+        List<TicketResponse> tickets = ticketService.getAvailableTickets();
         return ResponseEntity.ok(tickets);
     }
 
-    /*
-    // Bisa tambahkan pembelian tiket (opsional, misal role Attendee juga boleh beli)
-    @PreAuthorize("hasRole('ROLE_ATTENDEE')")
-    @PostMapping("/{id}/purchase")
-    public ResponseEntity<TicketResponse> purchase(@PathVariable Long id) {
-        try {
-            TicketResponse response = service.purchaseTicket(id);
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.BAD_REQUEST).build();
-        }
-    }
-
-     */
-
-    // Admin dapat hapus tiket (D)
-    @PreAuthorize("hasRole('ROLE_ADMIN')")
     @DeleteMapping("/{id}")
-    public ResponseEntity<Void> delete(@PathVariable Long id) {
-        try {
-            service.deleteTicket(id);
-            return ResponseEntity.noContent().build();
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.NOT_FOUND).build();
-        }
+    @PreAuthorize("hasRole('ADMIN')")
+    public ResponseEntity<Map<String, String>> deleteTicket(@PathVariable Long id) {
+        Authentication auth = SecurityContextHolder.getContext().getAuthentication();
+        String email = ((UserDetails) auth.getPrincipal()).getUsername();
+        User admin = userRepository.findByEmail(email)
+                .orElseThrow(() -> new UnauthorizedAccessException("User not found"));
+
+        ticketService.deleteTicket(id, admin);
+
+        return ResponseEntity.ok(
+                Map.of(
+                        "status", "success",
+                        "message", "Ticket deleted successfully",
+                        "timestamp", LocalDateTime.now().toString()
+                )
+        );
     }
+
 }
