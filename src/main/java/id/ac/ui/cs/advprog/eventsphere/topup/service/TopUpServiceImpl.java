@@ -53,7 +53,9 @@ public class TopUpServiceImpl implements TopUpService {
         try {
             topUp = topUpFactory.createTopUp(topUpRequest.getTopUpType(), topUpRequest.getAmount());
 
-            topUpStrategy.executeTopUp(user, topUp);
+            TopUpStrategy strategy = getStrategy(topUpRequest.getPaymentMethod());
+            strategy.executeTopUp(user, topUp);
+
             userRepository.save(user);
 
             Transaction transaction = Transaction.builder()
@@ -135,5 +137,12 @@ public class TopUpServiceImpl implements TopUpService {
     public User getUserById(Long userId) {
         return userRepository.findById(userId)
                 .orElseThrow(() -> new RuntimeException("User not found"));
+    }
+
+    private TopUpStrategy getStrategy(String paymentMethod) {
+        return switch (paymentMethod) {
+            case "STANDARD" -> topUpStrategy;
+            default -> topUpStrategy;
+        };
     }
 }
