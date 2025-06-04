@@ -11,7 +11,7 @@ public class NotificationTest {
     @Test
     @DisplayName("Membuat notifikasi baru dengan parameter yang valid")
     public void testCreateNotification() {
-        // Arrange (Menyiapkan semua data)
+        // Arrange
         Long recipientId = 1L;
         String recipientEmail = "user@example.com";
         UUID relatedEntityId = UUID.randomUUID();
@@ -20,11 +20,11 @@ public class NotificationTest {
         String message = "Test Message";
         String type = "TEST_TYPE";
 
-        // Act (Aksi yang diuji)
+        // Act
         Notification notification = new Notification(
                 recipientId, recipientEmail, senderRole, title, message, type, relatedEntityId);
 
-        // Assert (Memastikan hasil)
+        // Assert
         assertEquals(recipientId, notification.getRecipientId());
         assertEquals(recipientEmail, notification.getRecipientEmail());
         assertEquals(senderRole, notification.getSenderRole());

@@ -34,14 +34,11 @@ public class AttendeeReportController {
     @PreAuthorize("hasRole('ATTENDEE')")
     public ResponseEntity<ReportResponseDTO> createReport(@RequestBody CreateReportRequest createRequest) {
 
-        // Get current authenticated user
         User currentUser = authService.getCurrentUser();
 
-        // Set user details from authenticated user
         createRequest.setUserId(currentUser.getId());
         createRequest.setUserEmail(currentUser.getEmail());
 
-        // Call report service - perubahan di sini, tidak lagi mengirim null sebagai parameter kedua
         ReportResponseDTO createdReport = reportService.createReport(createRequest);
         return new ResponseEntity<>(createdReport, HttpStatus.CREATED);
     }
@@ -58,7 +55,7 @@ public class AttendeeReportController {
     @PreAuthorize("hasRole('ATTENDEE')")
     public ResponseEntity<ReportResponseDTO> getReportById(@PathVariable UUID id) {
         ReportResponseDTO report = reportService.getReportById(id);
-        // Security check to ensure users can only view their own reports
+
         User currentUser = authService.getCurrentUser();
         if (!report.getUserEmail().equals(currentUser.getEmail())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
@@ -72,16 +69,13 @@ public class AttendeeReportController {
             @PathVariable UUID reportId,
             @RequestBody CreateReportCommentRequest commentRequest) {
 
-        // Get current authenticated user
         User currentUser = authService.getCurrentUser();
 
-        // Verify user owns the report
         ReportResponseDTO report = reportService.getReportById(reportId);
         if (!report.getUserEmail().equals(currentUser.getEmail())) {
             return ResponseEntity.status(HttpStatus.FORBIDDEN).build();
         }
 
-        // Set responder info from authenticated user
         commentRequest.setResponderId(currentUser.getId());
         commentRequest.setResponderRole("ATTENDEE");
         commentRequest.setResponderEmail(currentUser.getEmail());

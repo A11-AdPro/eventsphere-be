@@ -23,4 +23,8 @@ public interface ReportRepository extends JpaRepository<Report, UUID> {
     List<Report> findByUserIdAndStatus(Long userId, ReportStatus status);
 
     List<Report> findByUserEmailAndStatus(String email, ReportStatus status);
+
+    List<Report> findByEventId(Long eventId);
+
+    List<Report> findByEventIdAndStatus(Long eventId, ReportStatus status);
 }
