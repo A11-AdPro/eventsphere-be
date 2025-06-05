@@ -13,13 +13,11 @@ public class TopUpFactory {
     public static final int LARGE_FIXED = 500000;
 
     public TopUp createTopUp(String type, int amount) {
-        if ("CUSTOM".equals(type)) {
-            return new CustomTopUp(amount);
-        } else if ("FIXED".equals(type)) {
-            return new FixedTopUp(amount);
-        } else {
-            throw new IllegalArgumentException("Invalid top-up type");
-        }
+        return switch (type) {
+            case "CUSTOM" -> new CustomTopUp(amount);
+            case "FIXED" -> new FixedTopUp(amount);
+            default -> throw new IllegalArgumentException("Invalid top-up type");
+        };
     }
 
     public TopUp createSmallTopUp() {
