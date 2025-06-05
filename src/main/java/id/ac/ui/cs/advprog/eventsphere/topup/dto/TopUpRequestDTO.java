@@ -12,4 +12,5 @@ import lombok.NoArgsConstructor;
 public class TopUpRequestDTO {
     private int amount;
     private String topUpType; // FIXED or CUSTOM
+    private String paymentMethod; // STANDARD
 }

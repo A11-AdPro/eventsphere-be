@@ -5,7 +5,6 @@ import id.ac.ui.cs.advprog.eventsphere.authentication.service.AuthService;
 import id.ac.ui.cs.advprog.eventsphere.report.dto.response.NotificationDTO;
 import id.ac.ui.cs.advprog.eventsphere.report.service.NotificationManagementService;
 import org.springframework.beans.factory.annotation.Autowired;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
@@ -73,13 +72,13 @@ public class NotificationController {
     public ResponseEntity<Void> markAllNotificationsAsRead() {
         User currentUser = authService.getCurrentUser();
         notificationService.markAllNotificationsAsReadByEmail(currentUser.getEmail());
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 
     @DeleteMapping("/{id}")
     @PreAuthorize("isAuthenticated()")
     public ResponseEntity<Void> deleteNotification(@PathVariable UUID id) {
         notificationService.deleteNotification(id);
-        return new ResponseEntity<>(HttpStatus.NO_CONTENT);
+        return ResponseEntity.noContent().build(); // 204 No Content
     }
 }

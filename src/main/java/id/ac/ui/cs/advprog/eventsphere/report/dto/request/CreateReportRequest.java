@@ -7,6 +7,8 @@ import lombok.Data;
 public class CreateReportRequest {
     private Long userId;
     private String userEmail;
+    private Long eventId;
+    private String eventTitle;
     private ReportCategory category;
     private String description;
 }

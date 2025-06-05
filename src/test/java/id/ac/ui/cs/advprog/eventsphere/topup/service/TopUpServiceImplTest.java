@@ -83,6 +83,7 @@ public class TopUpServiceImplTest {
         TopUpRequestDTO request = TopUpRequestDTO.builder()
                 .amount(50000)
                 .topUpType("CUSTOM")
+                .paymentMethod("STANDARD")
                 .build();
         
         TopUp topUp = new CustomTopUp(50000);
