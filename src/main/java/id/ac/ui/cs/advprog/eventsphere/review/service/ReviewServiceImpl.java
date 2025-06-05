@@ -215,7 +215,12 @@ public class ReviewServiceImpl implements ReviewService {
             }
 
             try {
-                String filename = UUID.randomUUID() + "_" + image.getOriginalFilename();
+                // Only allow .jpg/.jpeg or .png extensions, ignore original filename
+                String extension = ".jpg";
+                if (contentType.equals("image/png")) {
+                    extension = ".png";
+                }
+                String filename = UUID.randomUUID() + extension;
                 Path targetLocation = fileStoragePath.resolve(filename);
 
                 Files.copy(image.getInputStream(), targetLocation);
@@ -229,7 +234,7 @@ public class ReviewServiceImpl implements ReviewService {
 
                 savedImages.add(imageRepository.save(reviewImage));
             } catch (IOException e) {
-                throw new RuntimeException("Could not store image " + image.getOriginalFilename(), e);
+                throw new RuntimeException("Could not store image", e);
             }
         }
 
